@@ -1,0 +1,45 @@
+.video-background {
+  position: relative;
+  overflow: hidden;
+  height: 100vh; /* Full height */
+  width: 100vw;  /*   Full width */
+}
+.full-video-background {
+  position: relative;
+  overflow: hidden;
+  height: 100vh; /* Full height */
+  width: 100vw;  /* Full width */
+}
+
+video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  z-index: -1;  /* Place behind content */
+  transform: translate(-50%, -50%);
+}
+/* .background-container {
+  position: relative;
+  overflow: hidden;
+  height: 100vh; /* Full height 
+  width: 100vw;    Full width
+} */
+
+.content {
+  position: relative; /* Ensure content is above the video */
+  z-index: 1;
+  color: white; /* Adjust color for readability */
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  /* Ensure full coverage for mobile screens */
+  .video-background {
+    width: 100vw; /* Ensures coverage for smaller screens */
+    height: 100vh;
+  }
+}

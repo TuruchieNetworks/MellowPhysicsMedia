@@ -1,0 +1,162 @@
+/* body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  margin: 0;
+} */
+
+.Carousel {
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+  /* height: 500px;
+  width: 500px; */
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  -moz-box-shadow: 0px 6px 5px black;
+  -webkit-box-shadow: 6px 6px 5px black;
+  box-shadow: 0px 6px 5px black;
+  /* -moz-border-radius: 7%;
+  -webkit-border-radius: 5%;
+  border-radius: 5%; */
+  z-index: 36;
+  opacity: 1; 
+  transition: all 3.3s ease-in-out;
+}
+.Carousel:hover {
+  color:black;
+  font-weight: bold;
+  transition: all 0.3s ease-in;
+}
+/* .header-title {
+  font-size: medium;
+} */
+.flex-links {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+  /* height: 500px;
+  width: 500px; */
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  -moz-box-shadow: 0px 6px 5px black;
+  -webkit-box-shadow: 6px 6px 5px black;
+  box-shadow: 0px 6px 5px black;
+  /* -moz-border-radius: 7%;
+  -webkit-border-radius: 5%;
+  border-radius: 5%; */
+  /* z-index: 36; */
+  opacity: 1; 
+  transition: all 3.3s ease-in-out;
+}
+.flex-links:hover {
+  color:black;
+  font-weight: bold;
+  transition: all 0.3s ease-in;
+}
+.flex-links .headerTitle {
+  font-size: medium;
+}
+.flex-links .headerTitle:hover {
+  cursor: pointer;
+}
+.image-container {
+  display: flex;
+  /* flex-direction: column;
+  justify-content: center;
+  align-items: center; */
+  width: 500px; /* Match the Carousel width */
+  height: 504px; /* Match the Carousel height */
+}
+
+.image-container img {
+  width: 500px; /* Match the Carousel width */
+  height: 500px; /* Match the Carousel height */
+  object-fit: cover; /* Ensure images cover the area */
+}
+
+img {
+  object-fit: cover; /* Ensure images cover the area */
+}
+
+.btn-container {
+  display: flex;
+  justify-content: space-between;
+}
+
+.btn {
+  /* background-color: blueviolet; */
+  color: aliceblue;
+  color: rgb(20, 16, 5);
+  font-weight: bold;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  height: 30px;
+  width: 49.5%; /* A little gap between buttons */
+  -moz-box-shadow: 0px 6px 5px black;
+  -webkit-box-shadow: 6px 6px 5px black;
+  box-shadow: 0px 6px 5px black;
+  /* animation: gradient-animation 0.6s infinite ease-in-out; */
+  background: linear-gradient(to right, rgb(237, 207, 187), rgb(236, 56, 11));
+  transition: all 3.3s ease-in-out;
+}
+
+.btn:hover {
+  opacity: 0.9;
+  color: black;
+  font-size: 14px;
+  /* transition: all 5.3s ease-in-out; */
+  transition: all 0.3s ease-in;
+  animation: gradient-animation 0.6s infinite ease-in-out;
+}
+
+.btn:focus {
+  outline: none;
+  transition: all 1.3s ease-in-out;
+}
+
+
+.carousel-container {
+  position: relative;
+  width: 100%; /* Adjust as needed */
+  margin: auto;
+  overflow: hidden; /* Hide overflow */
+}
+
+
+.carousel-image {
+  width: 150px; /* Adjust width for side images */
+  height: auto;
+  max-width: 100%; 
+}
+.image-carousel {
+  flex: 1; /* Take equal space */
+  max-width: 100%; /* Ensure it doesn’t overflow */
+}
+.main-image {
+  width: 300px; /* Wider width for the main image */
+}
+
+.prev-button,
+.next-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.7);
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  padding: 10px;
+  z-index: 10;
+}
+
+.prev-button {
+  left: 10px;
+}
+
+.next-button {
+  right: 10px;
+}

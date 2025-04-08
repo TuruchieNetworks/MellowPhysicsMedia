@@ -1,0 +1,174 @@
+//   // Handle hover effect on shaders
+//   handleHoverEffect(shader) {
+//     if (shader) {
+//       // Update hover effect uniforms
+//       shader.uniforms.hovered.value = 1.0;
+//       shader.uniforms.mousePosition.value = this.mousePosition; // new THREE.Vector2(this.mousePosition.x, this.mousePosition.y);
+
+//       // Dynamically update explodeIntensity based on time and mouse hover
+//       shader.uniforms.explodeIntensity.value = Math.sin(this.explodeIntensity + this.time);
+//       shader.uniforms.shapeFactor.value = this.shapeFactor + (this.time * Math.sin(0.001 + this.time));
+//     }
+//   }
+
+
+//   updateHoverEffect(event) {
+//     if (event && this.mousePosition) {
+//       this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
+//       this.mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
+//     }
+
+//     // Define shaders here or use class-level shaders
+//     const shaders = [
+//       this.blendedLucentShader,
+//     ];
+
+//     // const mouseEnter = () => {
+//     //   shaders.forEach(shader => {
+//     //     if (shader && shader.uniforms) {
+//     //       shader.uniforms.hovered.value = 1.0; // Mouse entered, activate hover effect
+//     //     }
+//     //   });
+//     // };
+
+//     const updateMouseExit = () => {
+//       shaders.forEach(shader => {
+//         if (shader && shader.uniforms) {
+//           shader.uniforms.hovered.value = 0.0; // Mouse left, deactivate hover effect
+//         }
+//       });
+//     };
+
+//     const updateMouseEnter = () => {
+//       shaders.forEach(shader => {
+//         if (!shader || !shader.uniforms) return;
+
+//         const { uniforms } = shader;
+
+//         if (uniforms.hovered) uniforms.hovered.value = 1.0;
+//         if (uniforms.explodeIntensity) uniforms.explodeIntensity.value = Math.sin(this.explodeIntensity + this.time);
+//         if (uniforms.shapeFactor) uniforms.shapeFactor.value = this.shapeFactor + (this.time * Math.sin(0.001 + this.time));
+//         if (uniforms.mousePosition) uniforms.mousePosition.value.set(this.mousePosition.x, this.mousePosition.y);
+//       });
+//     }
+//     updateMouseEnter();
+//     window.addEventListener("mouseout", updateMouseExit);
+//   }
+
+//   updateEvents() {
+//     // Listen for mouse enter and leave events
+//     // window.addEventListener("mouseout", mouseLeave);
+//     // window.addEventListener("mouseenter", mouseEnter);
+
+//     // Listen for mouse move to update shader effects
+//     window.addEventListener('mousemove', (e) => {
+//       this.updateHoverEffect(e); // Call your method to update hover effect on shaders
+//     });
+//   }
+  
+//   updateMouseExit() {
+//   const shaders = [this.blendedLucentShader];
+//   shaders.forEach(shader => {
+//     if (shader?.uniforms?.hovered) {
+//       shader.uniforms.hovered.value = 0.0;
+//     }
+//   });
+// }
+
+// handleMouseMove(event) {
+//   if (event && this.mousePosition) {
+//     this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
+//     this.mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
+//   }
+
+//   const shaders = [this.blendedLucentShader];
+//   shaders.forEach(shader => {
+//     if (!shader?.uniforms) return;
+    
+//     const { uniforms } = shader;
+
+//     if (uniforms.hovered) uniforms.hovered.value = 1.0;
+//     if (uniforms.mousePosition) {
+//       uniforms.mousePosition.value.set(this.mousePosition.x, this.mousePosition.y);
+//     }
+
+//     if (uniforms.explodeIntensity) {
+//       uniforms.explodeIntensity.value = Math.sin(this.explodeIntensity + this.time);
+//     }
+
+//     if (uniforms.shapeFactor) {
+//       uniforms.shapeFactor.value = this.shapeFactor + (this.time * Math.sin(0.001 + this.time));
+//     }
+//   });
+// }
+
+// updateEvents() {
+//   // Only bind listeners once
+//   window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+//   window.addEventListener('mouseout', () => this.updateMouseExit());
+// // }
+
+  
+// `
+//         void main() {
+//           vec2 fragCoord = gl_FragCoord.xy;
+//           vec2 uv = fragCoord / resolution; // Proper UV mapping
+//           uv.x *= resolution.x / resolution.y;
+//           // vec2 mouse = (mousePosition.xy * 2.0 - fragCoord) / resolution.y;
+//           // vec2 mouseUV = mousePosition / resolution;
+//           // vec3 color = uv.x, uv.y, abs(sin(time));
+    
+//           // Calculate distance from the mouse position to the current fragment's position
+//           float dist = distance(mousePosition, uv);
+          
+//           // Use the distance to influence the color (make mouse position cause a color shift)
+//           vec3 color = vec3(1.0 - dist, 1.0 - dist, 1.0); // Makes the area closer to the mouse lighter (for visible effect)
+          
+//           // Use distance to control the opacity
+//           float opacity = smoothstep(0.0, 0.5, dist); // Opacity decreases with distance from the mouse position
+
+//           // Optionally, add time-based animation for extra dynamics
+//           color *= 0.5 + 0.5 * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and time
+
+//           gl_FragColor = vec4(color, 1.0 * opacity);
+//         };
+
+//         void main() {
+//           vec2 fragCoord = gl_FragCoord.xy;
+//           vec2 uv = fragCoord / resolution; // Proper UV mapping
+//           uv.x *= resolution.x / resolution.y;
+
+//           // Mouse Setup and normalized to same space (assuming it's passed in already as [0, res])
+//           vec2 mouse = (mousePosition * 2.0 - 1.0); // Convert to [-1, 1] range
+//           vec2 mouseUV = mousePosition / resolution;
+        
+//           // Aspect ratio correction for final rendering only, not for distance
+//           vec2 aspectUV = uv;
+//           aspectUV.x *= resolution.x / resolution.y;
+
+//           // Check if hovered is active or not
+//           if (hovered > 0.0) {
+//             // Mouse is hovering, apply mouse interaction effects
+//             float dist = distance(mousePosition, uv);
+//             float absT =  abs(sin(time));
+//             dist +=  absT;
+            
+//             // Use the distance to influence the color (make mouse position cause a color shift)
+//             vec3 color = vec3(1.0 - dist, 1.0 - dist, 1.0); // Makes the area closer to the mouse lighter (for visible effect)
+            
+//             // Use distance to control the opacity
+//             float opacity = smoothstep(0.0, 0.5, dist); // Opacity decreases with distance from the mouse position
+            
+//             // Optionally, add time-based animation for extra dynamics
+//             color *= 0.5 + 0.5 * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and time
+        
+//             gl_FragColor = vec4(color, opacity);
+//           } else {
+//             // Mouse is not hovering, apply default effect based on UV coordinates and distance
+//             float dist = distance(uv, vec2(0.5, 0.5)); // Default base distance, could be replaced with your original calculation
+//             vec3 color = vec3(1.0 - dist, 1.0 - dist, 1.0); // Use original UV-distance-based coloring
+//             color *= 0.5 + 0.5 * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and time
+//             float opacity = smoothstep(0.6, 0.8, 1.0);
+//             gl_FragColor = vec4(color, opacity); // Default behavior
+//           }
+//         }`
