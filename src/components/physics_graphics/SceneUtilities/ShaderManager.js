@@ -2,12 +2,14 @@ import * as THREE from 'three';
 import ConvolutionShaderMaterials from '../Shaders/ConvolutionShaderMaterials';
 import ExplosiveShaderMaterials from '../Shaders/ExplosiveShaderMaterials';
 import FrequencyShaderMaterials from '../Shaders/FrequencyShaderMaterials';
+import GraphShaderMaterials from '../Shaders/GraphShaderMaterials';
 import LucentShadereMaterials from '../Shaders/LucentShadaerMaterials';
 import MoltenTerrazoMaterials from '../Shaders/MoltenTerrazoMaterials';
 import NoiseShaderMaterials from '../Shaders/NoiseShaderMaterials';
 import SawShaderMaterials from '../Shaders/SawShaderMaterials';
 import SkyLineMaterials from '../Shaders/SkyLineMaterials';
 import TerrainShaderMaterials from '../Shaders/TerrainShaderMaterials';
+import TerrestialMosaicMaterials from '../Shaders/TerrestialMosaicMaterials';
 import TunnelTubeCityMaterials from '../Shaders/TunnelTubeCityMaterials';
 import WrinkledShaderMaterials from '../Shaders/WrinkledShaderMaterials';
 
@@ -80,8 +82,12 @@ class ShaderManager {
       { name: 'lucentManager', material: LucentShadereMaterials },
 
       // Music and Frequency
+      { name: 'graphManager', material: GraphShaderMaterials },
       { name: 'frequencyManager', material: FrequencyShaderMaterials },
+
+      //  Estate Management
       { name: 'skylineManager', material: SkyLineMaterials },
+      { name: 'terrestialManager', material: TerrestialMosaicMaterials },
     ];
 
     // Loop through each manager and initialize them
@@ -250,7 +256,7 @@ class ShaderManager {
   // Update method for shader uniforms and dynamic behavior
   update() {
     [this.sawManager, this.noiseManager, this.explosiveManager,
-    this.convolutionManager, this.frequencyManager,
+    this.convolutionManager, this.frequencyManager, this.terrestialManager,
     this.wrinkledManager, this.terrainManager, this.tunnelManager,
     this.skylineManager, this.moltenManager, this.lucentManager].forEach(manager => {
       if (manager && typeof manager.update === 'function') {

@@ -11,6 +11,7 @@ import VideoBackground from '../backgroundVideos/VideoBackground';
 import BioCarousel from './BioCarousel';
 import PhysicsGalaxy from '../physics_graphics/SceneComponents/PhysicsGalaxy';
 import FloatingClouds from '../physics_graphics/SceneComponents/FloatingClouds';
+import FloatingTerrains from '../physics_graphics/SceneComponents/FloatingTerrains';
 
 const Landing = () => {
     const musicUtils = new MusicUtils();

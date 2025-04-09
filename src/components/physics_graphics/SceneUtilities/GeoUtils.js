@@ -231,9 +231,10 @@ class GeoUtils {
     bottom = this.shader.terrainManager.wiredCityTerrainSDFShader,
     left = this.shader.tunnelManager.tubeCityShader,
     right = this.shader.skylineManager.ceasarsShader,
-    front = this.shader.lucentManager.blendedLucentShader,
+    front = this.shader.terrestialManager.fluidMosaicShader,
     back = this.shader.lucentManager.blendedLucentShader,
   } = {}) {
+    // front = this.shader.lucentManager.blendedLucentShader,
     // Ensure shaders exist before applying
     if (!this.shader) {
       console.error("Shader manager not initialized!");
