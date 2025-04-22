@@ -15,7 +15,7 @@ export class PlaneManager {
     this.world.gravity.set(0, -9.81, 0);
     this.withFiniteGround = withFiniteGround;
     this.texturedMaterial = texturedMaterial;
-    this.mat = shaderManager.wrinkledCoalMaterial;
+    this.mat = shaderManager.dragonCityTerrainMaterial;
     this.color = '#' + Math.floor(Math.random() * 16777215).toString(16);
 
     // Initialize shaders

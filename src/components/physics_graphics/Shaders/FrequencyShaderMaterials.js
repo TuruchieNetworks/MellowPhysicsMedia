@@ -1,36 +1,29 @@
 import * as THREE from 'three';
 
 export class FrequencyShaderMaterials {
-  constructor(width = window.innerWidth,
-    height = window.innerHeight,
-    deltaTime = 1 / 60,
-    time = 0.1,
-    shapeFactor = 0.5,
-    cubeTexture = null,
-    explodeIntensity = 0.1,
-    thickness = 1,
-    flatShading = true,
-    u_frequency = 0.0,
-    mousePosition) {
-    this.width = width;
-    this.height = height;
-    this.time = time;
-    this.u_frequency = u_frequency;
-    this.thickness = thickness;
-    this.explodeIntensity = explodeIntensity;
-    this.flatShading = flatShading;
-    this.deltaTime = deltaTime;
-    this.shapeFactor = shapeFactor;
-    this.cubeTexture = cubeTexture;
-    this.hovered = 0.1;
+  constructor(params,
+    mouse) {
+    this.params = params;
+    this.width = this.params.width ?? window.innerWidth;
+    this.height = this.params.height ?? window.innerHeight;
+    this.clock = this.params.clock ?? new THREE.Clock();
+    this.sineTime = this.params.sineTime ?? this.params.time;
+    this.time = this.params.time ?? this.clock.getElapsedTime();
+    this.deltaTime = this.params.deltaTime ?? 1 / 60;
+    this.shapeFactor = this.params.shapeFactor ?? 0.5;
+    this.explodeIntensity = this.params.explodeIntensity ?? 0.1;
+    this.u_frequency = this.params.u_frequency ?? 0.0;
+    this.hovered = this.params.hovered ?? 0.1;
 
     // Mouse Utils
-    this.mousePosition = mousePosition;
+    this.mouse = mouse;
+    this.mousePosition = this.mouse;
 
     this.useIcoShader();
     this.useMusicShader();
     this.useFrequencyShader();
-    // this.updateEvents();
+    this.updateEvents();
+    this.getShaders();
   }
 
   useIcoShader() {
@@ -47,6 +40,9 @@ export class FrequencyShaderMaterials {
         u_blue: { value: 1.0 },
         hovered: { value: this.hovered },
         mousePosition: { value: this.mousePosition },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
       },
 
       vertexShader: `
@@ -180,6 +176,9 @@ export class FrequencyShaderMaterials {
         u_perlinScale: { value: new THREE.Vector2(50.0, 20000.0) }, // Frequency scale for Perlin noise (50Hz to 20,000Hz)
         u_resolution: { value: new THREE.Vector2(this.width, this.height) }, // Resolution (screen size)
         mousePosition: { value: this.mousePosition },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
         hovered: { value: this.hovered }
       },
 
@@ -349,6 +348,9 @@ export class FrequencyShaderMaterials {
         u_perlinScale: { value: new THREE.Vector2(50.0, 20000.0) }, // Frequency scale for Perlin noise (50Hz to 20,000Hz)
         u_resolution: { value: new THREE.Vector2(this.width, this.height) }, // Resolution (screen size)
         mousePosition: { value: this.mousePosition },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
         hovered: { value: this.hovered }
       },
 
@@ -419,19 +421,23 @@ export class FrequencyShaderMaterials {
     this.frequencyMaterial = new THREE.ShaderMaterial(this.frequencyShader);
   } 
 
+  getShaders() {
+    this.shaders = [
+      this.icoShader, 
+      this.musicShader,
+      this.freuencyShader
+    ];
+  }
+
   updateResolution(shader, width, height) {
     if (shader && shader.uniforms && shader.uniforms.resolution) {
       shader.uniforms.resolution.value.set(width, height);
     }
   }
 
-  handleResize(renderer, width = window.innerWidth, height = window.innerHeight) {
-    if (!renderer) return;
-
+  handleResize(width = window.innerWidth, height = window.innerHeight) {
     // Each shader handles its own resolution updates
-    if (this.icoShader) this.updateFrequencyResolution(this.icoShader, width, height);
-    if (this.musicShader) this.updateFrequencyResolution(this.musicShader, width, height);
-    if (this.frequencyShader) this.updateFrequencyResolution(this.freuencyShader, width, height);
+    this.shaders.forEach(shader => {if (shader) this.updateResolution(shader, width, height)});
   }
 
 
@@ -444,18 +450,16 @@ export class FrequencyShaderMaterials {
   }
 
   updateHoverEffect(event) {
-    if (event && this.mouseUtils.mouse) {
-      this.mouseUtils.updateMouse(event);
+    if (event && this.mousePosition) {
+      this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
+      this.mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
     }
-
-    // Update internal mousePosition
-    this.mousePosition = this.mouseUtils.getMousePosition();
-
+  
     // Update the shader with the current mouse position and toggle the effect
-    if (this.icoShader) this.handleHoverEffect(this.icoShader, this.mousePosition);
-    if (this.musicShader) this.handleHoverEffect(this.musicShader, this.mousePosition);
-    if (this.fragmentShader) this.handleHoverEffect(this.freuencyShader, this.mousePosition);
-  } 
+    this.shaders.forEach(shader => {
+      if (shader) this.handleHoverEffect(shader, this.mousePosition);
+    });
+  }
 
   updateEvents() {
     window.addEventListener('mousemove', (e) => {

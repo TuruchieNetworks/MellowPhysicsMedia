@@ -30,7 +30,8 @@ const Landing = () => {
                 transition: 'background-image 0.5s ease-in-out',
             }}
         >
-            <PhysicsGalaxy />
+        <FloatingTerrains />
+            {/* <PhysicsGalaxy /> */}
             <div
                 style={{
                     backgroundImage: `url(${images[idx]})`,
@@ -52,7 +53,7 @@ const Landing = () => {
                         backgroundPosition: 'center',
                         transition: 'background-image 0.5s ease-in-out',
                     }}>
-                    <FloatingClouds />
+                    {/* <FloatingClouds /> */}
                 </div> 
                 <VideoBackground  logo_scene={logo_scene} videoRef={videoRef} />   
                 

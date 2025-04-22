@@ -1,49 +1,49 @@
 import * as THREE from 'three';
 
 export class NoiseShaderMaterials {
-  constructor(width = window.innerWidth,
-    height = window.innerHeight,
-    deltaTime = 1 / 60,
-    time = 0.1,
-    shapeFactor = 0.5,
-    cubeTexture = null,
-    explodeIntensity = 0.1,
-    thickness = 1,
-    flatShading = true,
-    u_frequency = 0.0,
-    mousePosition) {
-    this.width = width;
-    this.height = height;
-    this.time = time;
-    this.u_frequency = u_frequency;
-    this.thickness = thickness;
-    this.explodeIntensity = explodeIntensity;
-    this.flatShading = flatShading;
-    this.deltaTime = deltaTime;
-    this.shapeFactor = shapeFactor;
-    this.cubeTexture = cubeTexture;
-    this.hovered = 0.1;
+  constructor(params,
+    mouse) {
+    this.params = params;
+    this.width = this.params.width ?? window.innerWidth;
+    this.height = this.params.height ?? window.innerHeight;
+    this.clock = this.params.clock ?? new THREE.Clock();
+    this.sineTime = this.params.sineTime ?? 0.0;
+    this.time = this.params.time ?? this.clock.getElapsedTime();
+    this.deltaTime = this.params.deltaTime ?? 1 / 60;
+    this.shapeFactor = this.params.shapeFactor ?? 0.5;
+    this.cubeTexture = this.params.cubeTexture ?? null;
+    this.explodeIntensity = this.params.explodeIntensity ?? 0.1;
+    this.u_frequency = this.params.u_frequency ?? 0.0;
+    this.hovered = this.params.hovered ?? 0.1;
 
     // Mouse Utils
-    this.mousePosition = mousePosition;
+    this.mouse = mouse;
+    this.mousePosition = this.mouse;
 
     // this.addMouseHover();
     // this.addMouseListener();
     this.useNoiseShader();
     this.useDarkNoiseShader();
     this.useStarryBackgrounds();
-    // this.updateEvents();
+    this.useScatteredNoise();
+    this.updateEvents();
+    this.getShaders();
   }
 
   useStarryBackgrounds() {
     this.starryShader = {
       uniforms: {
-        hovered: { value: 0.0 },
-        time: { value: this.time },
-        explodeIntensity: { value: 0.1 },
+        hovered: { value: this.hovered},
+        sineTime: { value: this.sineTime },
+        shapeFactor: { value: this.shapeFactor },
+        time: { value: this.clock.getElapsedTime()},
+        mousePosition: { value: this.mousePosition },
         backgroundTexture: { value: this.cubeTexture },
-        mousePosition: { value: new THREE.Vector2(0.0, 0.0) },
+        explodeIntensity: { value: this.explodeIntensity},
         resolution: { value: new THREE.Vector2(this.width, this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
       },
 
       vertexShader: `
@@ -79,12 +79,16 @@ export class NoiseShaderMaterials {
   useNoiseShader() {
     this.noiseShader = {
       uniforms: {
-        time: { value: this.time },
-        resolution: { value: new THREE.Vector2(this.width, this.height) },
         hovered: { value: this.hovered },
-        mousePosition: { value: new THREE.Vector2(this.mousePosition ) },
-        // mousePosition: { value: new THREE.Vector2(this.mousePosition.x / this.width, this.mousePosition.y / this.height) },
+        sineTime: { value: this.sineTime },
+        shapeFactor: { value: this.shapeFactor },
+        time: { value: this.clock.getElapsedTime()},
+        mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
+        resolution: { value: new THREE.Vector2(this.width, this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
       },
       vertexShader: `
         varying vec2 vUv;
@@ -190,16 +194,19 @@ export class NoiseShaderMaterials {
   useDarkNoiseShader() {
     this.darkNoiseShader = {
       uniforms: {
-        time: { value: this.time },
+        sineTime: { value: this.sineTime },
+        time: { value: this.clock.getElapsedTime()},
         resolution: { value: new THREE.Vector2(this.width, this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
         shapeFactor: { value: this.shapeFactor }, // Control for trapezoidashape
         u_frequency: { value: this.u_frequency }, // Current frequency value from the audio analysis
         u_freqBands: { value: new THREE.Vector3(0.0, 0.0, 0.0) }, // Frequency bands (bass, mid, treble)
         u_ampFactor: { value: 1.0 }, // Amplitude factor to scale frequency effects
         u_perlinScale: { value: new THREE.Vector2(50.0, 20000.0) }, // Frequency scale for Perlin noise (50Hz to 20,000Hz)
         hovered: { value: this.hovered },
-        mousePosition: { value: new THREE.Vector2(this.mousePosition ) },
-        // mousePosition: { value: new THREE.Vector2(this.mousePosition.x / this.width, this.mousePosition.y / this.height) },
+        mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
         side: { value: this.side }, // Retain the side parameter
         flatShading: { value: this.flatShading }, // Retain flat shading
@@ -260,7 +267,8 @@ export class NoiseShaderMaterials {
   useScatteredNoise() {
     this.scatteredNoiseShader = {
       uniforms: {
-        time: { value: this.time },
+        time: { value: this.clock.getElapsedTime()},
+        sineTime: { value: this.sineTime },
         resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
         shapeFactor: { value: this.shapeFactor }, // Control for trapezoidashape
         u_frequency: { value: this.u_frequency }, // Current frequency value from the audio analysis
@@ -269,7 +277,6 @@ export class NoiseShaderMaterials {
         u_perlinScale: { value: new THREE.Vector2(50.0, 20000.0) }, // Frequency scale for Perlin noise (50Hz to 20,000Hz)
         hovered: { value: this.hovered },
         mousePosition: { value: new THREE.Vector2(this.mousePosition ) },
-        // mousePosition: { value: new THREE.Vector2(this.mousePosition.x / this.width, this.mousePosition.y / this.height) },
         explodeIntensity: { value: this.explodeIntensity },
         side: { value: this.side }, // Retain the side parameter
         flatShading: { value: this.flatShading }, // Retain flat shading
@@ -372,7 +379,17 @@ export class NoiseShaderMaterials {
         }
       `,
     };
+
     this.scatteredNoiseMaterial = new THREE.ShaderMaterial(this.scatteredNoiseShader);
+  }
+
+  getShaders() {
+    this.shaders = [
+      this.noiseShader,
+      this.starryShader,
+      this.darkNoiseShader,
+      this.scatteredNoiseShader
+    ];
   }
 
   updateResolution(shader, width, height) {
@@ -381,72 +398,54 @@ export class NoiseShaderMaterials {
     }
   }
 
-  handleResize(renderer, width = window.innerWidth, height = window.innerHeight) {
-    if (!renderer) return;
+  handleResize(width = window.innerWidth, height = window.innerHeight) {
     // Each shader handles its own resolution updates
-    if (this.noiseShader) this.updateResolution(this.noiseShader, width, height);
-    if (this.starryShader) this.updateResolution(this.starryShader, width, height);
-    if (this.darkNoiseShader) this.updateResolution(this.darkNoiseShader, width, height);
-    if (this.scatteredNoiseShader) this.updateResolution(this.scatteredNoiseShader, width, height);
+    this.shaders.forEach(shader => {if (shader) this.updateResolution(shader, width, height)});
   }
-
-  handleHoverEffect(shader, mousePosition) {
-    if (!shader && !mousePosition)
-    // Update the shader with the current mouse position and toggle the effect
-    shader.uniforms.mousePosition.value =  new THREE.Vector2(mousePosition.x, mousePosition.y);
-    shader.uniforms.hovered.value = 1.0;
+  
+  updateMouseExit() {
+    this.shaders.forEach(shader => {
+      if (shader?.uniforms?.hovered) {
+        shader.uniforms.hovered.value = 0.0;
+      }
+    });
   }
-
-  updateHoverEffect(event) {
+  
+  handleMouseMove(event) {
     if (event && this.mousePosition) {
       this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
       this.mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
-      // this.mouseUtils.updateMouse(event);
     }
+
+    this.shaders.forEach(shader => {
+      if (!shader?.uniforms) return;
+      
+      const { uniforms } = shader;
   
-    // Copy Updated Mouse Position
-    // this.mousePosition = this.mouseUtils.getMousePosition();
-
-    if (this.noiseShader) this.handleHoverEffect(this.noiseShader, this.mousePosition);
-    if (this.starryShader) this.handleHoverEffect(this.starryShader, this.mousePosition);
-    if (this.darkNoiseShader) this.handleHoverEffect(this.darkNoiseShader, this.mousePosition);
-    if (this.scatteredNoiseShader) this.handleHoverEffect(this.scatteredNoiseShader, this.mousePosition);
-  }
-
-  updateEvents() {
-    window.addEventListener('mousemove', (e) => {
-      this.updateHoverEffect(e);
+      if (uniforms.hovered) uniforms.hovered.value = 1.0;
+      if (uniforms.mousePosition) uniforms.mousePosition.value.set(this.mousePosition.x, this.mousePosition.y);
+      if (uniforms.explodeIntensity) uniforms.explodeIntensity.value = Math.sin(this.explodeIntensity + this.sineTime);
+      if (uniforms.shapeFactor) uniforms.shapeFactor.value = this.shapeFactor + (this.sineTime * Math.sin(0.001 + this.sineTime));
     });
   }
-
-  // Update method for shader uniforms and dynamic behavior
-  update() {
-    // this.addMouseListener();
-    this.time += this.deltaTime; // Update time for animation
-
-    // Noise updates
-    if (this.noiseShader) {    
-      this.noiseShader.uniforms.time.value = (Math.cos(this.time) * 0.5) + 0.5;
-      // this.noiseShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
-
-    // Starry Noise Updates
-    if (this.starryShader) {
-      this.starryShader.uniforms.time.value = Math.sin(this.time) + 0.1;
-      // this.starryShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-      this.starryShader.uniforms.explodeIntensity.value = Math.sin(this.time) + Math.cos(0.1 + this.time);
-    }
-
-    // Dark Noise updates
-    if (this.darkNoiseShader) {
-      this.darkNoiseShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
-
-    // Scattered Noise Updates
-    if (this.scatteredNoiseShader) {
-      this.scatteredNoiseShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
+  
+  updateEvents() {
+    // Only bind listeners once
+    window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+    window.addEventListener('mouseout', () => this.updateMouseExit());
   }
 
+  update() {
+    this.sineTime += this.deltaTime;
+    const elapsed = this.clock.getElapsedTime();
+    this.shaders.forEach(shader => {
+      if (shader) {
+        shader.uniforms.time.value =  elapsed;
+        shader.uniforms.shapeFactor.value = this.sineTime * Math.sin(0.001 + this.sineTime);
+        shader.uniforms.sineTime.value = (Math.sin(this.sineTime) * 0.5) + 0.5 + Math.cos(0.1 + this.sineTime);
+        shader.uniforms.explodeIntensity.value = (Math.sin(this.sineTime) * 0.5) + 0.5 + Math.cos(0.1 + this.sineTime);
+      }
+    });
+  }
 }
 export default NoiseShaderMaterials;

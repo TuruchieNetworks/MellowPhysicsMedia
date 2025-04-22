@@ -13,7 +13,7 @@ const ImageCarousel = ({ idx, handleNext, handlePrev, images }) => {
                 }}
             >
                 {images.map((image, idx) => (
-                    <div id={idx}>
+                    <div  key={image + idx} id={image + idx}>
                         <img
                             src={image}
                             alt={`image-${idx}`}

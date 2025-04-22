@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 
 const useUIUtils = () => {
-    // Time Converter
     const timeConverter = (timeInSeconds) => {
         const minutes = Math.floor(timeInSeconds / 60);
         const seconds = Math.floor(timeInSeconds - minutes * 60);
@@ -9,6 +8,45 @@ const useUIUtils = () => {
         const formattedSeconds = seconds < 10 ? `0${seconds}` : seconds;
         return `${formattedMinutes}:${formattedSeconds}`;
     };
+
+    // This function sets up the metadata and time updates for the track
+    const updateCurrentTrack = (currentTrack, setTotalDuration, setCurrentTime, setRemainingDuration) => {
+        currentTrack.addEventListener('loadedmetadata', () => {
+            const newDuration = currentTrack.duration;
+            const newCurrentTime = currentTrack.currentTime;
+
+            const formattedCurrentTime = timeConverter(newCurrentTime);
+            const formattedRemainingTime = timeConverter(newDuration - newCurrentTime);
+            const formattedTotalDuration = timeConverter(newDuration);
+
+            // Update states with formatted time
+            setTotalDuration(formattedTotalDuration);
+            setCurrentTime(formattedCurrentTime);
+            setRemainingDuration(formattedRemainingTime);
+        });
+    };
+
+    const formatPlayerTimer = (currentTrack, newCurrentTime, newDuration, setCurrentMinutes, setCurrentSeconds, setDurationMinutes, setDurationSeconds, setCurrentTime, setRemainingDuration, setTotalDuration) => {
+      const newCurrentMinutes = Math.floor(newCurrentTime / 60);
+      const newCurrentSeconds = Math.floor(newCurrentTime - newCurrentMinutes * 60);
+      const newDurationMinutes = Math.floor(newDuration / 60);
+      const newDurationSeconds = Math.floor(newDuration - newDurationMinutes * 60);
+  
+      setCurrentMinutes(newCurrentMinutes);
+      setCurrentSeconds(newCurrentSeconds);
+      setDurationMinutes(newDurationMinutes);
+      setDurationSeconds(newDurationSeconds);
+  
+      // Using timeConverter from useUIUtils
+      const formattedCurrentTime = timeConverter(newCurrentTime);
+      const formattedRemainingTime = timeConverter(newDuration - newCurrentTime);
+      const formattedTotalDuration = timeConverter(currentTrack.duration);
+  
+      setTotalDuration(formattedTotalDuration);
+      setCurrentTime(formattedCurrentTime);
+      setRemainingDuration(formattedRemainingTime);
+    }
+
     // Generate a random hex color
     const randomHexColor = useCallback(() => {
         return `#${Math.floor(Math.random() * 16777215).toString(16)}`;
@@ -23,7 +61,7 @@ const useUIUtils = () => {
         return `rgba(${r}, ${g}, ${b}, ${a})`;
     }, []);
 
-    return { randomHexColor, randomRgbaColor, timeConverter };
+    return { randomHexColor, randomRgbaColor, timeConverter , updateCurrentTrack, formatPlayerTimer };
 };
 
 export default useUIUtils;

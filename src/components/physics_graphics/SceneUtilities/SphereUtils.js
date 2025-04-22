@@ -3,7 +3,7 @@ import * as CANNON from "cannon-es";
 
 
 class SphereUtils {
-    constructor(scene, world, textureLoader, texturedMaterials, mouseUtils, imageUtils, shaderManager, physicsEngine, gaussianDistribution, mat = null, sceneMeshes) {
+    constructor(scene, world, textureLoader, texturedMaterials, mouseUtils, imageUtils, shaderManager, physicsEngine, gaussianDistribution, mat = null, sceneMeshes, boundaryObj) {
         this.scene = scene;
         this.world = world;
         this.physics = physicsEngine;
@@ -13,6 +13,7 @@ class SphereUtils {
         this.shaderManager = shaderManager;
         this.texturedMaterials = texturedMaterials;
         this.gaussianDistribution = gaussianDistribution;
+        this.boundaryObj = boundaryObj;
         this.mat = mat;
 
         // Intersection, raycasting, and hover preview
@@ -26,16 +27,19 @@ class SphereUtils {
         this.gravity = this.physics.gravity;
         this.sceneMeshes = sceneMeshes;
 
-
         // Spheres and animations
         this.spheres = [];
         this.geometries = [];
         this.sphereCanonMeshes = [];
         this.sphereBodies = [];
 
+        // Target Controls
         this.previewSphere = this.createPreviewSphere();
         this.scene.add(this.previewSphere);
+
+        // Events and Controls
         this.updateEvents();
+        this.controlBtns(this.shaderManager, this.physics);
     }
 
     createRandomHexColor = () => {
@@ -111,8 +115,8 @@ class SphereUtils {
 
     handleClick() {
         // Use GaussianDistribution to generate mass and velocity
-        const mass = this.gaussianDistribution.getMass() * 150;
-        const velocity = this.gaussianDistribution.getVelocity();
+        const mass = this.gaussianDistribution.getMass() + 150;
+        const velocity = this.gaussianDistribution.getVelocity(); // + 50; //* 150;
 
         // Get a random image for the sphere texture
 
@@ -162,28 +166,27 @@ class SphereUtils {
         };
     }
 
-    controlBtns() {
-        // Assign materials
-        const sawMaterial = this.shaderManager.sawMaterial;
-        const explosiveMaterial = this.shaderManager.explosiveMaterial;
-        const wrinkledMaterial = this.shaderManager.wrinkledMaterial;
-        const wrinkledIceMaterial = this.shaderManager.wrinkledIceMaterial;
-        const wrinkledFireMaterial = this.shaderManager.wrinkledFireMaterial;
-
-        // Use manager methods to handle key presses
-        this.manager.addKeyListener('a', () => this.handleClick(wrinkledFireMaterial));
-        this.manager.addKeyListener('l', () => this.handleClick(wrinkledFireMaterial));
-        this.manager.addKeyListener('i', () => this.handleClick(wrinkledIceMaterial));
-        this.manager.addKeyListener('c', () => this.handleClick(wrinkledIceMaterial));
-        this.manager.addKeyListener('e', () => this.handleClick(explosiveMaterial));
-        this.manager.addKeyListener('q', () => this.handleClick(explosiveMaterial));
-        this.manager.addKeyListener('x', () => this.handleClick(explosiveMaterial));
-        this.manager.addKeyListener('s', () => this.handleClick(sawMaterial));
-        this.manager.addKeyListener('w', () => this.handleClick(sawMaterial));
-        this.manager.addKeyListener('f', () => this.handleClick(wrinkledMaterial));
-        this.manager.addKeyListener('r', () => this.handleClick(wrinkledMaterial));
-        this.manager.addKeyListener('h', () => this.handleClick(wrinkledMaterial));
-        this.manager.addKeyListener('g', () => this.physics.toggleGravity());
+    controlBtns(shaderManager, physics) { 
+        const keyActions = {
+        a: () => this.handleClick(shaderManager.cityTerrainMaterial),
+        l: () => this.handleClick(shaderManager.cityTerrainMaterial),
+        i: () => this.handleClick(shaderManager.terrestialDragonMaterial),
+        c: () => this.handleClick(shaderManager.terrestialDragonMaterial),
+        e: () => this.handleClick(shaderManager.explosiveMaterial),
+        q: () => this.handleClick(shaderManager.explosiveMaterial),
+        x: () => this.handleClick(shaderManager.explosiveMaterial),
+        s: () => this.handleClick(shaderManager.sawMaterial),
+        w: () => this.handleClick(shaderManager.sawMaterial),
+        f: () => this.handleClick(shaderManager.ceasersShaderMaterial),
+        r: () => this.handleClick(shaderManager.ceasersShaderMaterial),
+        h: () => this.handleClick(shaderManager.ceasersShaderMaterial),
+        g: () => this.toggleGravity(physics),
+      };
+    
+      window.addEventListener('keydown', (event) => {
+        const action = keyActions[event.key.toLowerCase()];
+        if (action) action();
+      });
     }
 
     copyCameraPosition(scene = this.scene, mesh = this.previewSphere,
@@ -236,30 +239,7 @@ class SphereUtils {
                     sphereObj.mesh.rotation.y += 0.14;
                     sphereObj.mesh.rotation.z += 0.16;
 
-                    // Apply gravity
-                    if (this.physics.gravityEnabled) {
-                    sphereObj.velocity.add(this.gravity.clone().multiplyScalar(0.016));
-                    }
-
-                    // Update position based on velocity
-                    sphereObj.mesh.position.add(sphereObj.velocity.clone().multiplyScalar(0.016));
-
-                    // Check for collisions with other spheres
-                    this.physics.checkWallCollision(sphereObj);
-                    this.physics.checkGroundCollision(sphereObj);
-
-                    this.spheres.forEach(otherSphere => {
-                        if (sphereObj !== otherSphere && otherSphere.mesh) {
-                            this.physics.handleSphereCollision(sphereObj, otherSphere);
-                        }
-                    });
-
-                    // Check for collision with scene meshes (static objects)
-                    this.sceneMeshes.forEach(meshObj => {
-                        this.physics.handleStaticCollision(sphereObj, meshObj);
-                    });
-
-                    ///this.physics.handlePlaneCollision(sphereObj, this.mouseUtils); // Handle plane collision
+                    this.physics.updatePhysicsEngine(sphereObj, this.spheres, this.sceneMeshes, this.boundaryObj); 
                 }
             });
         }
@@ -285,203 +265,3 @@ class SphereUtils {
     }
 }
 export default SphereUtils;
-
-
-
-
-
-// class SphereUtils {
-//   constructor(manager) {
-//       this.manager = manager; // Assuming manager handles the necessary functionality
-//       this.previewSphere = null;
-//       this.spheres = [];
-//       this.mouse = new THREE.Vector2();
-//       this.camera = null;
-//       this.rayCaster = new THREE.Raycaster();
-//       this.planeNormal = new THREE.Vector3();
-//       this.intersectionPlane = new THREE.Plane();
-//       this.intersectionPoint = new THREE.Vector3();
-//       this.gravityEnabled = false;
-//       this.gravity = new THREE.Vector3(0, -9.8, 0);
-//       this.shader = {}; // Assuming shaders are available
-//   }
-
-//   controlBtns() {
-//       // Assign materials
-//       const sawMaterial = this.shader.sawMaterial;
-//       const explosiveMaterial = this.shader.explosiveMaterial;
-//       const wrinkledMaterial = this.shader.wrinkledMaterial;
-//       const wrinkledIceMaterial = this.shader.wrinkledIceMaterial;
-//       const wrinkledFireMaterial = this.shader.wrinkledFireMaterial;
-
-//       // Use manager methods to handle key presses
-//       this.manager.addKeyListener('a', () => this.handleClick(wrinkledFireMaterial));
-//       this.manager.addKeyListener('l', () => this.handleClick(wrinkledFireMaterial));
-//       this.manager.addKeyListener('i', () => this.handleClick(wrinkledIceMaterial));
-//       this.manager.addKeyListener('c', () => this.handleClick(wrinkledIceMaterial));
-//       this.manager.addKeyListener('e', () => this.handleClick(explosiveMaterial));
-//       this.manager.addKeyListener('q', () => this.handleClick(explosiveMaterial));
-//       this.manager.addKeyListener('x', () => this.handleClick(explosiveMaterial));
-//       this.manager.addKeyListener('s', () => this.handleClick(sawMaterial));
-//       this.manager.addKeyListener('w', () => this.handleClick(sawMaterial));
-//       this.manager.addKeyListener('f', () => this.handleClick(wrinkledMaterial));
-//       this.manager.addKeyListener('r', () => this.handleClick(wrinkledMaterial));
-//       this.manager.addKeyListener('h', () => this.handleClick(wrinkledMaterial));
-//       this.manager.addKeyListener('g', () => this.toggleGravity());
-//   }
-
-//   copyCameraPosition(camera = this.camera, rayCaster = this.rayCaster, mesh = this.previewSphere, planeNormal = this.planeNormal, intersectionPlane = this.intersectionPlane, intersectionPoint = this.intersectionPoint, mouse = this.mouse) {
-//       planeNormal.copy(camera.position).normalize();
-//       intersectionPlane.setFromNormalAndCoplanarPoint(planeNormal, this.scene.position);
-//       rayCaster.setFromCamera(mouse, camera);
-
-//       if (rayCaster.ray.intersectPlane(intersectionPlane, intersectionPoint)) {
-//           mesh.position.copy(intersectionPoint);
-//           mesh.visible = true;
-//       }
-//   }
-
-//   updateHover(event) {
-//       this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-//       this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-//       this.copyCameraPosition(this.camera, this.rayCaster, this.previewSphere, this.planeNormal, this.intersectionPlane, this.intersectionPoint, this.mouse);
-//   }
-
-//   hideHover() {
-//       this.previewSphere.visible = false;
-//   }
-
-//   updateSpheres() {
-//       if (this.previewSphere) {
-//           this.previewSphere.rotation.x += 0.12;
-//           this.previewSphere.rotation.y += 0.14;
-//           this.previewSphere.rotation.z += 0.16;
-//       }
-
-//       if (this.spheres.length > 0) {
-//           this.spheres.forEach((sphere, i) => {
-//               if (sphere && sphere.mesh) {
-//                   sphere.mesh.rotation.x += 0.12;
-//                   sphere.mesh.rotation.y += 0.14;
-//                   sphere.mesh.rotation.z += 0.16;
-
-//                   this.geoUtils.activateSphereBody(sphere.mesh, this.sphereBodies[i]);
-//                   // Apply gravity
-//                   if (this.gravityEnabled) {
-//                       sphere.velocity.add(this.gravity.clone().multiplyScalar(0.016));
-//                   }
-
-//                   // Update position based on velocity
-//                   sphere.mesh.position.add(sphere.velocity.clone().multiplyScalar(0.016));
-
-//                   // Handle ground collision
-//                   this.physics.checkGroundCollision(sphere);
-
-//                   // Handle sphere-to-sphere collisions
-//                   this.spheres.forEach(otherSphere => {
-//                       if (sphere !== otherSphere && otherSphere.mesh) {
-//                           this.physics.handleSphereCollision(sphere, otherSphere);
-//                       }
-//                   });
-//               }
-//           });
-//       }
-//   }
-// }
-
-
-
-
-// // controlBtns() {
-// //   const sawMaterial = this.shader.sawMaterial;
-// //   const explosiveMaterial = this.shader.explosiveMaterial;
-// //   const wrinkledMaterial = this.shader.wrinkledMaterial;
-// //   const wrinkledIceMaterial = this.shader.wrinkledIceMaterial;
-// //   const wrinkledFireMaterial = this.shader.wrinkledFireMaterial;
-// //   // Toggle gravity on key press (for example, "G" key)
-// //   window.addEventListener('keydown', (event) => {
-// //       if (event.key === 'a' || event.key === 'l') {
-// //           this.handleClick(wrinkledFireMaterial);
-// //       }
-// //       if (event.key === 'i' || event.key === 'c') {
-// //           this.handleClick(wrinkledIceMaterial);
-// //       }
-// //       if (event.key === 'e' || event.key === 'q' || event.key === 'x') {
-// //           this.handleClick(explosiveMaterial);
-// //       }
-// //       if (event.key === 's' || event.key === 'w') {
-// //           this.handleClick(sawMaterial);
-// //       }
-// //       if (event.key === 'f' || event.key === 'r' || event.key === 'i' || event.key === 'h') {
-// //           this.handleClick(wrinkledMaterial);
-// //       }
-// //       if (event.key === 'g') {
-// //           this.toggleGravity();
-// //       }
-// //   });
-// // }
-
-// // copyCameraPosition(camera = this.camera, rayCaster = this.rayCaster, mesh = this.previewSphere, planeNormal = this.planeNormal, intersectionPlane = this.intersectionPlane, intersectionPoint = this.intersectionPoint, mouse = this.mouse) {
-// //   planeNormal.copy(camera.position).normalize();
-// //   intersectionPlane.setFromNormalAndCoplanarPoint(planeNormal, this.scene.position);
-// //   rayCaster.setFromCamera(mouse, camera);
-
-// //   if (rayCaster.ray.intersectPlane(intersectionPlane, intersectionPoint)) {
-// //       mesh.position.copy(intersectionPoint);
-// //       mesh.visible = true;
-// //   }
-// // }
-
-//  // updateHover(event, callback) {
-//     //     this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-//     //     this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-//     //     this.copyCameraPosition(this.camera, this.rayCaster, 
-//     //         this.previewSphere, this.planeNormal, this.intersectionPlane, 
-//     //         this.intersectionPoint, this.mouse);
-
-//     //     // Execute the callback function if provided
-//     //     if (callback && typeof callback === 'function') {
-//     //         callback(this.rayCaster, this.mouse);
-//     //     }
-//     // }
-//     // updateHover(event) {
-//     //   this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-//     //   this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-//     //   this.copyCameraPosition(this.camera, this.rayCaster, this.previewSphere, this.planeNormal, this.intersectionPlane, this.intersectionPoint, this.mouse)
-
-//     //   // this.planeNormal.copy(this.camera.position).normalize();
-//     //   // this.intersectionPlane.setFromNormalAndCoplanarPoint(this.planeNormal, this.scene.position);
-//     //   // this.rayCaster.setFromCamera(this.mouse, this.camera);
-
-//     //   // if (this.rayCaster.ray.intersectPlane(this.intersectionPlane, this.intersectionPoint)) {
-//     //   //     this.previewSphere.position.copy(this.intersectionPoint);
-//     //   //     this.previewSphere.visible = true;
-//     //   // }
-//   // }
-
-// // updateEvents() {
-// //   window.addEventListener('mousemove', (event) => {
-// //       this.updateHover(event);
-// //   });
-
-// //   window.addEventListener('click', () => {
-// //       this.handleClick();
-// //   });
-// // }
-
-// // updateHover(event) {
-// //   this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-// //   this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-// //   this.planeNormal.copy(this.camera.position).normalize();
-// //   this.intersectionPlane.setFromNormalAndCoplanarPoint(this.planeNormal, this.scene.position);
-// //   this.rayCaster.setFromCamera(this.mouse, this.camera);
-
-// //   if (this.rayCaster.ray.intersectPlane(this.intersectionPlane, this.intersectionPoint)) {
-// //       this.previewSphere.position.copy(this.intersectionPoint);
-// //       this.previewSphere.visible = true;
-// //   }
-// // }

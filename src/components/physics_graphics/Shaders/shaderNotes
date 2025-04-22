@@ -477,7 +477,7 @@ void main(){
     color = vec3( 1.-smoothstep(f,sin(f + r)+-0.268,r) );
 
     gl_FragColor = vec4(color, 1.0);
-}uniform float u_time;
+}uniform float time;
 
 float box(in vec2 u, in vec2 _size){
     _size = vec2(0.5) - _size*0.5;
@@ -500,7 +500,7 @@ void main(){
     vec3 color = vec3(0.0);
 
     // To move the cross we move the space
-    vec2 translate = vec2(cos(u_time),sin(u_time));
+    vec2 translate = vec2(cos(time),sin(time));
     uv += translate*0.35;
 
     // Show the coordinates of the space on the background
@@ -580,7 +580,7 @@ void main(){
     vec3 color = vec3(0.0);
 
     uv -= vec2(0.5);
-    uv = scale( vec2(sin(u_time)+1.0) ) * uv;
+    uv = scale( vec2(sin(time)+1.0) ) * uv;
     uv += vec2(0.5);
 
     // Show the coordinates of the space on the background
@@ -1870,3 +1870,1218 @@ export class TerrestialMosaicMaterials {
   }
 }
 export default TerrestialMosaicMaterials;
+
+float rollingSpace(vec2 u) {
+    
+    vec3 p = vec3(0.0, 0.0, -19.0 * time);
+
+    vec2 pos = vec2(0.5)-u;
+
+    float xs = 0.001 * time;
+    float sm = 0.01 * time;
+    
+    float r = length(pos)*2.0;
+    float smr = smoothstep(xs -r * tan(pow(0.1*pos.x, pos.y)), r+pos.x, atan(tan(r * sm), pos.y));
+    float h = sin(r) * sin(smr + r);
+    float a = atan(pos.y,pos.x) - smr * sin(xs);
+    float pol = atan(pos.y,pos.x) - smr *h;
+    float cyc = atan(pos.y,pos.x) - smr -h *a;
+    pol *= atan(cyc, pol);// Horse Runner
+    // a  = atan(pos.y,pos.x) - smr - (time + tan(pos.y)); wheel circus
+    a += pol; // Dirty Bug
+    a *= pol; //* sqrt(a * time); // Dirty Bug
+    // a = pol; //* sqrt(a * time); // Motion Flower
+    float csn = a*pol;
+	a += csn * fract (sin(a* p.z *time) ) + time;
+	float rollMill = a + (csn * fract (sin(a* p.z *time) ) + time /p.z);
+	// float fan = a + (csn * fract (sin(a+ p.z *time) ) + time);
+    // a = fan;
+    a = rollMill;
+    float ac = cos(cyc-a*3.+ pow(cyc, pol)) / pol * csn;
+    float as = sin(cyc-a*3.+ pow(cyc, pol));
+    float f = cos(cyc-a*3.+ pow(cyc * tan(0.6), pol)) * 21.976*(as / pol) * csn;
+    // f = min(as,ac+tan(pol* 13.0 * time));
+    // f = abs(cos(a*3.));
+    // f += fract(sin(a*2.5))*0.644+.3 - f;
+    // f = abs(cos(a*12.)*sin(a*3.296))*0.904+.1;
+    // f = smoothstep(-.5,1., cos(a*10.))*0.264+0.580;
+
+    return 1.-smoothstep(f,f+0.02,r);
+}
+
+
+    vec3 p = vec3(0.0, 0.0, -9.0 * time);
+
+    vec2 pos = vec2(0.5)-uv;
+
+    float xs = 0.001 * time;
+    float sm = 0.01 * time;
+    
+    float r = length(pos)*2.0;
+    float smr = smoothstep(r* tan(atan(pos.x, pos.y)), r+pos.x, atan(tan(r * sm), pos.y));
+    float h = sin(r) * sin(smr);
+    float a = atan(pos.y,pos.x) - smr;
+    float pol = atan(pos.y,pos.x) - smr *h * a;
+    float cyc = atan(pos.y,pos.x) - smr -h *a;
+    pol *= atan(cyc, pol);// Horse Runner
+    // a  = atan(pos.y,pos.x) - smr - (time + tan(pos.y)); wheel circus
+    a += pol; // Dirty Bug
+    a *= pol; //* sqrt(a * time); // Dirty Bug
+    // a = pol; //* sqrt(a * time); // Motion Flower
+    float csn = a*pol;
+	a += csn * fract (sin(a* p.z *time) ) + time;
+	float rollMill = a + (csn * fract (sin(a* p.z *time) ) + time);
+	// float fan = a + (csn * fract (sin(a+ p.z *time) ) + time);
+    // a = fan;
+    // a = rollMill;
+    float ac = cos(cyc-a*3.+ pow(cyc, pol)) / pol * csn;
+    float as = sin(cyc-a*3.+ pow(cyc, pol));
+    float f = as - cos(a*3.* pow(cyc * tan(1.168), pol)) * 21.976*(as / pol) * csn;
+    f = min(as,ac+tan(pol* 13.0));
+    // f = abs(cos(a*3.));
+    // f = abs(sin(a*2.5))*0.652+.3;
+    // f = abs(cos(a*12.)*sin(a*3.296))*0.904+.1;
+    // f = smoothstep(-.5,1., cos(a*10.))*0.264+0.580;
+
+    color = vec3( 1.-smoothstep(f,f+0.02,r) );
+
+
+
+        fragmentShader: `
+        #ifdef GL_ES
+        precision mediump float;
+        #endif
+        
+        varying vec2 vUv;
+        uniform float time;
+        uniform float hovered;
+        uniform float shapeFactor;
+        uniform vec2 mousePosition;
+        uniform vec2 resolution;
+        uniform float explodeIntensity;
+
+        // Define the size of a building block
+        float boxSize = 1.0;
+        float buildingHeight = 3.0;
+
+        // Noise function based on hash
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+        }
+
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          float a = hash(i);
+          float b = hash(i + vec2(1.0, 0.0));
+          float c = hash(i + vec2(0.0, 1.0));
+          float d = hash(i + vec2(1.0, 1.0));
+          vec2 u = f * f * (3.0 - 2.0 * f);
+          return clamp(mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y, 0.0, 1.0);
+        }
+
+        // Simple float hash function for generating pseudo-random values
+        float hash(float x) {
+            return fract(sin(x) * 43758.5453123); // A pseudo-random generator based on sin(x)
+        }
+
+        // Smoothstep interpolation function for blending
+        float S(float t) {
+          return t * t * (3.0 - 2.0 * t);
+        }
+        
+        // Define smooth union operation
+        float opSmoothUnion(float d1, float d2, float k) {
+            float h = clamp(0.5 - 0.5 * (d2 - d1) / k, 0.0, 1.0);
+            return mix(d2, d1, h) + k * h * (1.0 - h);
+        }
+  
+        float opSmoothIntersection(float d1, float d2, float k) {
+          float h = clamp(0.5 - 0.5 * (d2 - d1) / k, 0.0, 1.0);
+          return mix(d2, -d1, h) + k * h * (1.0 - h);
+        }
+  
+        float smin(float a, float b, float k) {
+          float h = max(k - abs(a - b), 0.0) / k;
+          return min(a, b) - h * h * h * k * (1.0 / 6.0);
+        }
+
+        mat2 rot2D(float angle) {
+          float s = sin(angle);
+          float c = cos(angle);
+  
+          return mat2(c, -s, s, c);
+        }
+  
+        vec3 rot3D(vec3 p, vec3 axis, float angle) {
+          // Rodrigues' Rotation Formula
+          return mix(dot(axis, p) * axis, p, cos(angle)) + cross(axis, p) * sin(angle);
+        }
+
+        vec3 rotate3D(vec3 p, vec3 k, float angle) {
+          k = normalize(k); // Ensure unit length
+          float cosA = cos(angle);
+          float sinA = sin(angle);
+      
+          return p * cosA + cross(k, p) * sinA + k * dot(k, p) * (1.0 - cosA);
+        }
+
+        // Signed distance function for a circle
+        float sdSphere(vec3 p, float r) {
+          return length(p) - r;
+        }
+
+        // Create a basic box (building) SDF
+        float sdBox(vec3 p, vec3 size) {
+          vec3 q = abs(p) - size; 
+          return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+        }
+
+        // Create a cuboid box (building) SDF
+        float sdBuilding(vec3 p, vec3 size) {
+          vec3 d = abs(p) - size;  // Get the distance from the cuboid
+          return min(max(d.x, max(d.y, d.z)), 0.0) + length(max(d, 0.0));
+        }
+        
+        // Define ground SDF function
+        float sdfGround(vec3 p) {
+            return p.y + noise(p.xz * 0.1) * 0.5; // Example ground height variation
+        }
+
+        // The main map function that will define the scene
+        float mapTerrain(vec3 p) {
+          // Define building parameters
+          vec3 spherePos = vec3(-5.0 * sin(time * 5.0), 2.0, 0.0);
+          // spherePos += rotate3D(spherePos, vec3(1.0, 0.5, 0.0), time * 0.3);
+          float sphere = sdSphere(p - spherePos, 0.9);
+
+          // Ground SDF
+          float ground = sdfGround(p);
+          // p += rot3D(p, p.xy, angle);  
+  
+          // Infinite city generation
+          vec3 q = p; // input copy
+
+          // Weather Factor the ommitted swizzled vec param is the axis of rotation
+          q.z += time * 0.4; // Forward Camera Movement  
+          q.y -= time * 0.4; // Upward Movement
+
+          // q.xz *= rot2D(time * 0.4);
+          q = fract(p) - 0.5; // Space Repetition 0.5 is the center of repetition
+          //q.xz = fract(p.xz) - 0.5; // Space Repetition 0.5 is the center of repetition
+
+          // // Boxes
+          float boxSize = 1.0;
+          float box = sdBox(q * 4.0, vec3(0.25)) / 4.0;
+
+          // Streets and Parkways, Create building SDF and place it on street
+          // Use mod(p.x, grid_size) and mod(p.z, grid_size) for infinite grid layout
+          float grid_size = 15.0;  // Grid spacing for streets & buildings
+          float road_width = 2.5;  // Adjust road width
+
+          // Calculate building's position based on street number
+          float buildingHeight = 3.0 + noise(p.xz * 0.1) * 2.0; // Random building height
+          vec3 buildingPos = q - vec3(mod(q.x, grid_size), 0.0, mod(q.z, grid_size));
+          float building = sdBuilding(buildingPos * 3.0, vec3(boxSize, buildingHeight, boxSize * 3.0) / 3.0) / 3.0;  // Generate a unique "houseNumber" based on the building's grid position
+
+          // Use hash function to introduce randomness for building properties based on the houseNumber
+          float houseNumber = floor(buildingPos.x / grid_size) + floor(buildingPos.z / grid_size) * 57.0;  // Unique ID for each building
+          float heightFactor = hash(houseNumber + 1.0); // Random value for height variation
+          float sizeFactor = hash(houseNumber + 2.0);   // Random value for size variation
+
+          // Apply these random values to alter building height and size
+          buildingHeight += heightFactor * 2.0; // Alter height based on houseNumber
+          boxSize += sizeFactor * 0.5;          // Alter size based on houseNumber
+
+          // Combine the ground with buildings
+          float terrain = min(ground, building);  
+
+          // Combine ground with buildings using smooth union
+          // return opSmoothUnion(ground, building, min(min(box, building), terrain));
+          return opSmoothUnion(terrain, building, smin(min(box, building), terrain, 2.0));
+          //return smin(terrain, building, smin(min(box, building), terrain, 2.0));
+        }
+
+        float sdFlowers(vec3 p) {
+          float t = 0.01;
+          float u = 0.001 + time;
+          float v = 0.001 + (0.1 * time);
+          float m = (0.088 + v)+ (time * t);
+
+          float r = length(p)*2.0;
+          float a = atan(atan(p.y,p.x), p.z);
+      
+          float f = cos(a*3.);
+          // f = abs(cos(a*3.));
+          // f = abs(cos(a*2.5))*.5+.3;
+          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+
+          float sh = smoothstep(f, f + 0.02, r);
+      
+          float shape = 1.0 - sh;
+
+          return shape;
+        }
+
+        float sdFlowerVortex(vec3 p) {
+          float t = 0.01;
+          float u = 0.001 + time;
+          float v = 0.001 + (0.1 * time);
+          float m = (0.088 + v)+ (time * t);
+
+          float r = length(p)*2.0;
+          float a = atan(atan(p.y,p.x), p.z);
+      
+          float f = cos(a*3.);
+          // f = abs(cos(a*3.));
+          // f = abs(cos(a*2.5))*.5+.3;
+          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+
+          float smh = smoothstep(f, f + 0.02, r);
+      
+          float shape = 1.0 - smh;
+
+          return shape;
+        }
+
+        float dragonSpider(vec3 p) {
+          vec2 drg = p.xz;
+          float r = length(drg) * 2.616;
+          float a = fract(atan(drg.y * p.z, fract(drg.x) - 0.2 * sin(drg.x * drg.y * p.z))) - r;
+        
+          float f = abs(cos(a * 2.5)) * 0.5 + 0.3;
+          f = abs(cos(a * 12.0) * sin(a * 3.0)) * 0.8 + 0.1;
+          float softness = smoothstep(-0.5, 1.0, cos(a * 10.0)) * 0.2 + 0.5;
+        
+          float d = 1.0 - smoothstep(f, sin(f + r) - 0.25, r);
+          return d - 0.5;
+        }
+
+        float sdWaspDagon(vec3 p, float r, float t) {
+          r = length(p) * 2.616;
+          float a = fract(atan(p.y * p.z, fract(p.x * sin(t * p.z)) - 0.2 * p.z + t)) - r;
+        
+          t += fract(time * 0.25 * p.z);
+          float wave = sin(a * 10.0 + t * 6.2831); // 2π loop
+          float f = abs(wave * p.z) * 0.8 + 0.1;
+        
+          float softness = smoothstep(-0.5, 1.0, cos(a * 10.0)) * 0.2 + 0.5;
+          float waspDagon = 1.0 - smoothstep(f, sin(f + r + t) - 0.25, r);
+        
+          return waspDagon;
+        }        
+
+        float sdDragonWingedSpider(vec3 p, float wings, float tails) {
+          vec2 drg = p.xz;
+          float r = length(drg) * 2.616;
+          float a = fract(atan(drg.y * p.z, fract(drg.x) - 0.2 * sin(drg.x * drg.y * p.z))) - r;
+        
+          float f = abs(cos(a * 2.5 * sqrt(wings))) * 0.5 + 0.3;
+          f = abs(cos(a * 12.0) * sin(a * 3.0)) * 0.8 + 0.1;
+          float softness = smoothstep(-0.5, 1.0, cos(a * 10.0 + sqrt(wings + tails))) * 0.2 + 0.5 + tails;
+        
+          float dragonWingedSpider = 1.0 - smoothstep(f, sin(f + r) - 0.25, r);
+          return dragonWingedSpider - 0.5;
+        }
+        
+        float waspSpider(vec3 p) {
+          vec2 proj = p.xz;
+          float r = length(proj) * 2.616;
+          float a = fract(atan(proj.y, fract(proj.x) - 0.2)) - r;
+        
+          float f = abs(cos(a * 12.0) * sin(a * 3.0)) * 0.8 + 0.1;
+          float sh = smoothstep(f, sin(f + r) - 0.25, r);
+          float spider =  1.0 - sh;
+          return spider;
+        }
+
+        float waterFront(vec3 p) {
+          float t = 0.01;
+          float u = 0.001 + time;
+          float v = 0.001 + (0.1 * time);
+          float m = (0.088 + v)+ (time * t);
+
+          // vec2 pos = vec2(0.5)-uv;
+          // float r = length(p)*2.0;
+          // float a = atan(p.y,(p.x));
+          // a = atan(u, fract(v + r)) - r;
+      
+          // float f = cos(a*(3.0 + m));
+          // // f = abs(cos(a*3.));
+          // // f = abs(cos(a*(2.5+ m)))*.5+.3;
+          // f = abs(cos(a*12.)*sin(a*(3. + u)+ time))*.8+.1;
+          // f = abs(cos(a*12.)*tan(a*(3. + u)+ time))*.8+.1;
+
+          float r = length(p)*2.0;
+          float a = atan(atan(p.y, p.z),(p.x * p.z));
+          a = atan(u, fract(v + r)) - r;
+          a = atan(fract(p.y * p.z) - 0.2 * cos(p.x * p.z), sin(p.z * p.y));
+
+          float f = cos(a*(3.0 + m));
+          // f = abs(cos(a*3.));
+          // f = abs(cos(a*(2.5+ m)))*.5+.3;
+          f = abs(cos(a*12.)*sin(a*(3. + u)+ time))*.8+.1;
+          f = abs(cos(a*12.)*tan(a*(3. + u)+ time))*.8+.1;
+          float waterFront = 1.-smoothstep(f,f+0.02,r);
+          return waterFront;
+        }
+
+        float blendedMosaic(vec3 p, float r, float h){
+            r *= length(p)*2.0;
+            h *= atan(
+              p.y, 
+              atan(
+                p.z, 
+                fract(p.y)
+              ))*length(p)*2.816;
+            float a = atan(p.y,p.x * sin(fract(p.x * time)));
+            float v = atan(p.y, p.y * p.z) / sqrt(a);
+            float avb = fract(atan(v * p.z * p.y, fract(p.y + smoothstep(p.x, sin(0.3 *(time) ), p.x*p.z)) - 0.2 * sin(p.x * p.y))) - r;
+            a += avb;
+            float bf = -0.176; //+ (time * 0.001);
+            float f = cos(a*3.);
+            f = smoothstep(-0.5, 1.0, cos(a * 10.200 * atan(p.x + sin(time), fract(a * time)))) * (bf) + 0.5;
+            // f = abs(cos(a*3.));
+            // f = abs(cos(a*2.5))*.5+.3;
+            // f += abs(cos(a*12.)*sin(a*3.))*.8+.1;
+            // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+        
+            float mosaic =  1.-smoothstep(f,f+0.02,r);
+            return mosaic;
+        }
+        
+        float duckSpring(vec3 p, float r, float h){
+            r *= length(p)*2.0;
+            h *= atan(
+              p.y * p.z, 
+              atan(
+                p.z, 
+                fract(p.y)
+              )
+            )*length(p)*2.816;
+            float a = atan(p.y,p.x);
+            float m = 0.001 * p.z;
+            float mn = 0.01 * time;
+            float gt = m * pow(h*m, time) + mn;
+            float gh = h *cos(a*(3.088 + gt) + (time* p.z));
+            vec3 v = vec3(atan(p.y, p.x * p.z));
+            a *= sqrt(fract(min(a,smoothstep(a, gt, gh)))) ;
+        
+            float f = cos(v.z*a*3.688)*-r - sin(2.+a * gh * p.z + time)*2.200+.1;
+            f += fract(a* gh * v.z + time);
+            // f += min(f, gh);
+            
+            // f = abs(cos(a*2.264));//Duck//
+            // f = abs(cos(a*2.5))*.5+.3;// Bird
+            // f = abs(cos(a*12.192)*sin(a*3.))*.8+.1;// Butterfly
+            // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+        
+            float duck = 1.-smoothstep(f,f+0.02,r);
+            return duck;
+          }
+        
+        
+        float sandySpring(vec3 p, float r, float h){
+            r *= length(p)*2.0;
+            h *= atan(
+              p.y * p.z, 
+              atan(
+                p.z, 
+                fract(p.y)
+              ))*length(p)*2.816;
+            float a = atan(p.y,p.x);
+            float m = 0.001 * p.z;
+            float mn = 0.01 * time;
+            float gt = m * pow(h*m, time) + mn;
+            float gh = h *cos(a*(3.088 + gt) + ((time) * p.z));
+            vec3 v = vec3(atan(p.y,p.x* p.z));
+            a /= min(a,smoothstep(a, gt, gh));
+        
+            float f = cos(a*3.688)*-r - sin(2.+a * gh * p.z + time)*2.200+.1;
+            f += fract(a* gh * v.z + time); // SandySprings
+            // f += min(f, gh);
+            
+            // f = abs(cos(a*3.));// SandOrbits
+            // f = abs(cos(a*2.5))*.5+.3;//
+            // f = abs(cos(a*12.)*sin(a*3.))*.8+.1; //SandyPlane
+            // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;//SandWorld
+            return 1.-smoothstep(f,f+0.02,r);
+          }
+        
+        
+        float sandPlain(vec3 p, float r, float h){
+            r *= length(p)*2.0;
+            h *= 
+            atan(
+              p.y * p.z, 
+              atan(
+                p.z, 
+                fract(p.y)
+              )
+            )*length(p)*2.816;
+            float a = atan(p.y,p.x);
+            float v = atan(p.y, p.x * p.z);
+            float m = 0.001 * p.z;
+            float mn = 0.01 * time;
+            float gt = m * pow(h*m, time) + mn;
+            float gh = h *cos(a*(3.088 + gt) + ((time) * p.z));
+            a = min(a,gh) ;
+
+            float f = cos(a*3.688)*-r - sin(2.+a * gh * p.z + time)*2.200+.1;
+            f += fract(a* gh * p.z + time);
+            // f += min(f, gh);
+            
+            // f = abs(cos(a*3.));
+            // f = abs(cos(a*2.5))*.5+.3;
+            // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
+            // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+        
+            float plane = 1.-smoothstep(f,f+0.02,r);
+            return plane;
+        }
+
+        vec3 rollingBug(vec2 u) {
+          vec3 p = vec3(0.0, 0.0, -9.0 * time);
+        
+          vec2 pos = vec2(0.5)-u;
+        
+          float xs = 0.001 * time;
+          float sm = 0.01 * time;
+            
+          float r = length(pos)*2.0;
+          float smr = smoothstep(r* tan(pow(pos.x, pos.y)), r+pos.x, atan(tan(r * sm), pos.y));
+          float h = sin(r) * sin(smr);
+          float a = atan(pos.y,pos.x) - smr;
+          float pol = atan(pos.y,pos.x) - smr *h;
+          float cyc = atan(pos.y,pos.x) - smr -h *a;
+
+          pol *= atan(cyc, pol);// Horse Runner
+          // a  = atan(pos.y,pos.x) - smr - (time + tan(pos.y)); wheel circus
+          a += pol; // Dirty Bug
+          a *= pol; //* sqrt(a * time); // Dirty Bug
+          // a = pol; //* sqrt(a * time); // Motion Flower
+
+          float csn = a*pol;
+          a += csn * fract (sin(a* p.z *time) ) + time;
+ 
+          float rollMill = a + (csn * fract (sin(a* p.z *time) ) + time);
+          // float fan = a + (csn * fract (sin(a+ p.z *time) ) + time);
+          // a = fan;
+          // a = rollMill;
+
+          float ac = cos(cyc-a*3.+ pow(cyc, pol)) / pol * csn;
+          float ad = sin(cyc-a*3.+ pow(cyc, pol));
+          float f = ad - cos(a*3.+ pow(cyc * tan(0.6), pol)) * 21.976*(ad / pol) * csn;
+
+          f = min(ad,ac+tan(pol* 13.0));
+          // f = abs(cos(a*3.));
+          // f = abs(sin(a*2.5))*0.652+.3;
+          // f = abs(cos(a*12.)*sin(a*3.296))*0.904+.1;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.264+0.580;
+        
+          return vec3( 1.-smoothstep(f,f+0.02,r) );
+        }
+
+        float mapDragons(vec3 p) {
+          // Base ground
+          float ground = sdfGround(p);
+        
+          // Infinite tiling
+          vec3 q = p;
+          q.z += time * 0.4;
+          q.y -= time * 0.4;
+          q = fract(q) - 0.5;
+        
+          // DRAGON SPIDER CREATURE
+          float dragonSpiders = dragonSpider(q * 4.0);
+        
+          // Grid setup
+          float grid_size = 15.0;
+          float road_width = 2.5;
+        
+          // WASP-DRAGON MOBILITY OFFSET
+          vec2 waspTile = floor(q.xz / grid_size);
+          float waspSeed = hash(dot(waspTile, vec2(7.3, 5.1))); // unique per tile
+          vec3 waspWiggle = vec3(
+            sin(time * 0.8 + waspSeed * 3.0),
+            cos(time * 0.6 + waspSeed * 5.0),
+            sin(time * 0.4 + waspSeed * 7.0)
+          ) * 1.5;
+
+          float waspSize = 3.0 + noise(p.xy * 0.1) * 2.0;
+          float waspTail = q.x * time;
+          vec3 waspOffset = vec3(mod(q.x * 0.02, grid_size), road_width, mod(q.z, grid_size));
+          vec3 waspPos = q - waspOffset + waspWiggle;
+          float waspDragon = sdWaspDagon(q - waspPos * 3.0,  waspSize, waspTail);
+        
+          // DRAGON DISTRIBUTION + WIGGLE
+          vec2 dragonTile = floor(q.xz / grid_size);
+          float dragonSeed = hash(dot(dragonTile, vec2(3.1, 8.2)));
+          vec3 dragonWiggle = vec3(
+            cos(time * 0.6 + dragonSeed * 10.0),
+            sin(time * 0.4 + dragonSeed * 6.0),
+            cos(time * 0.5 + dragonSeed * 4.0)
+          ) * 1.8;
+        
+          float dragonTail = time * q.z;
+          float dragonSize = S(time * q.z);
+          float tailFactor = hash(dragonTail + 1.0);
+          float sizeFactor = hash(dragonSize + tan(q.z) + 0.002);
+          dragonSize += tailFactor * 2.0;
+          waspSize += sizeFactor * 0.5;
+        
+          vec3 dragonPos = vec3(
+            floor(q.x / grid_size) * grid_size,
+            0.0,
+            floor(q.z / grid_size) * grid_size
+          ) + dragonWiggle;
+        
+          float dragonWingedSpider = sdDragonWingedSpider(q - dragonPos, dragonTail, dragonSize);
+        
+          // FINAL BLEND
+          float springCreatures = min(dragonWingedSpider, waspDragon);
+          float springDragons = smin(springCreatures, dragonSpiders, 0.4);
+        
+          // 🌍 TERRAIN MAP
+          float terrain = mapTerrain(p);
+
+          // 🌈 Final World Blend
+          return smin(terrain, springDragons, 0.3);
+        }
+
+        // Light
+        vec3 computeLighting(vec3 p, vec3 normal, vec3 lightPos, vec3 viewDir, float shadow) {
+          vec3 lightDir = normalize(lightPos - p);
+      
+          // Compute soft shadow
+          // float shadow = softShadow(p + normal * 0.02, lightDir, 0.1, 10.0, 16.0);
+          
+          // Diffuse lighting
+          float diff = max(dot(normal, lightDir), 0.0);
+          
+          // Specular lighting (Phong reflection)
+          vec3 halfVec = normalize(lightDir + viewDir);
+          float spec = pow(max(dot(normal, halfVec), 0.0), 32.0);
+          
+          // Combine lighting and shadow
+          vec3 color = vec3(1.0, 0.9, 0.7); // Light color
+          return (diff + spec) * color * shadow;
+        }
+
+        void wiggleCamera(inout vec3 ro, inout vec3 rd, vec2 uv, vec2 mouse, float time) {
+          // Adding wiggle effect to the camera
+          ro.x += sin(time * 2.0) * 0.5;
+          ro.y += cos(time * 1.5) * 0.2;
+          
+          // Slight noise-based distortion on ray direction
+          rd += normalize(vec3(
+              sin(uv.x * time * 0.5) * 0.1,  
+              cos(uv.y * time * 0.3) * 0.1,  
+              sin(uv.x * time * 0.7) * 0.1  
+          ));
+
+          rd = normalize(rd); // Normalize direction after adding noise
+
+          // Camera rotations
+          ro.yz *= rot2D(-mouse.y);
+          rd.yz *= rot2D(-mouse.y);
+
+          ro.xz *= rot2D(-mouse.x);
+          rd.xz *= rot2D(-mouse.x);
+        }
+
+        // Optional Shadow calculator
+        float computeShadow(vec3 p, vec3 lightPos) {
+          vec3 shadowDir = normalize(lightPos - p);
+          float shadowT = 0.1; // Small offset to avoid self-shadowing
+          float shadowFactor = 1.0; // Default: no shadow
+      
+          for (int j = 0; j < 10; j++) { // Optimized iteration count
+              vec3 shadowPoint = p + shadowDir * shadowT;
+              float shadowDist = mapTerrain(shadowPoint);
+      
+              if (shadowDist < 0.001) {
+                  shadowFactor = 0.5; // In shadow
+                  break;
+              }
+      
+              shadowT += shadowDist;
+              if (shadowT > 5.0) break; // Exit if ray goes too far
+          }
+          return shadowFactor;
+        }
+
+        // Function to compute soft shadows
+        float computeSoftShadow(vec3 p, vec3 lightPos) {
+          vec3 shadowDir = normalize(lightPos - p);
+          float shadowT = 0.1; // Small initial offset to avoid self-shadowing
+          float shadowFactor = 1.0;
+          float maxDist = 5.0;
+
+          for (int j = 0; j < 24; j++) { // Optimized loop count
+            vec3 shadowPoint = p + shadowDir * shadowT;
+            float shadowDist = mapTerrain(shadowPoint);
+                
+            if (shadowDist < 0.001) {
+              shadowFactor *= 0.5; // Reduce intensity for occlusion
+            }
+                
+            shadowT += shadowDist * 0.5; // Smaller steps improve softness
+            if (shadowT > maxDist) break; // Stop marching if too far
+          }
+
+          return clamp(shadowFactor, 0.2, 1.0); // Ensure valid shadow range
+        }
+
+        // Display Shadows
+        float computeHardShadow(vec3 ro, vec3 lightPos) {
+          vec3 shadowRayDir = normalize(lightPos - ro);
+          float shadowT = 0.0;
+          float shadowIntensity = 1.0;
+      
+          for (int i = 0; i < 20; i++) {
+              vec3 shadowPoint = ro + shadowRayDir * shadowT;
+              float shadowDist = mapTerrain(shadowPoint);
+              shadowT += shadowDist;
+      
+              if (shadowDist < 0.001) {
+                  shadowIntensity = 0.5; // Shadowed region
+                  break;
+              }
+          }
+      
+          return shadowIntensity;
+        }
+
+        vec3 computeNormal(vec3 p) {
+          float epsilon = 0.001;
+          return normalize(vec3(
+              mapTerrain(p + vec3(epsilon, 0, 0)) - mapTerrain(p - vec3(epsilon, 0, 0)),
+              mapTerrain(p + vec3(0, epsilon, 0)) - mapTerrain(p - vec3(0, epsilon, 0)),
+              mapTerrain(p + vec3(0, 0, epsilon)) - mapTerrain(p - vec3(0, 0, epsilon))
+          ));
+        }
+
+        vec3 applyFog(vec3 color, float distance, vec3 fogColor, float fogDensity) {
+          float fogFactor = exp(-distance * fogDensity); // Exponential fog
+          return mix(fogColor, color, fogFactor); // Blend fog with scene color
+        }
+      
+        // Ripple Utilities
+        vec3 applyFloatRipple(float x, float y, float z, float d) {
+          float ripple = sin(10.0 * d - time * 5.0);
+          float intensity = smoothstep(0.3, 0.0, d);
+
+          vec3 wave = vec3(x, y, z) + ripple * intensity;
+          return wave;
+        }
+
+        vec3 applyRipple(vec3 p, float d, float time) {
+            float ripple = sin(10.0 * d - time * 5.0);
+            float intensity = smoothstep(0.3, 0.0, d);
+            return p + normalize(vec3(p.xy, 0.0)) * ripple * intensity;
+        }
+        
+        vec3 applyTurboRipple(vec3 position, float dist, float time, float frequency, float speed, float fade) {
+          float ripple = sin(frequency * dist - time * speed);
+          float intensity = smoothstep(fade, 0.0, dist);
+          return position + normalize(vec3(position.xy, 0.0)) * ripple * intensity;
+        }
+      
+        float blendShapeFactor(float uvx, float factor, float timeMod) {
+          float raw = fract(factor * uvx);
+          float st = smoothstep(0.0, 1.0, raw); // or your custom S()
+          float animated = st * sin(timeMod + uvx * factor);
+          return animated;
+        }
+
+        vec3 computeCameraTubePosition(float time) {
+          float radius = 5.0;  // Adjust radius for left/right swing
+          float speed = 0.5;   // Rotation speed
+          float camX = radius * sin(time * speed);  // Left/Right movement
+          float camZ = -time * 3.0;  // Forward movement into the tunnel
+
+          // float camX = radius * sin(time * speed);
+          // float camY = cos(time * 0.4) * 0.5;  // Small up/down motion
+          // float camZ = -time * (2.5 + sin(time * 0.2) * 1.5); // Smooth speed variation  
+          // return vec3(camX, camY, camZ);
+          return vec3(camX, 0.5, camZ);  // Keep Y constant
+        }
+      
+        vec3 computeCameraPosition(float time) {
+          float radius = 5.0; // Adjust for larger or smaller movement
+          float speed = 0.5; // Adjust rotation speed
+      
+          float camX = radius * cos(time * speed);
+          float camZ = radius * sin(time * speed);
+          
+          return vec3(camX, 1.5, camZ - 3.0); // Y-position can be adjusted for height
+        }
+
+        mat2 scale(vec2 _scale){
+            return mat2(_scale.x,0.0,
+                        0.0,_scale.y);
+        }
+        
+        float rollinBox(in vec2 u, in vec2 s){
+          s = vec2(0.5) - s*0.5;
+          vec2 suv = smoothstep(
+            s,
+            s+vec2(0.001),
+            u
+          );
+          suv *= smoothstep(
+            s,
+            s+vec2(0.001),
+            vec2(1.0)-u
+          );
+          return suv.x*suv.y;
+        }
+                
+        float ripple(vec2 uv, float t) {
+          float dist = length(uv - 0.5);
+          float wave = sin(20.0 * dist - t * 5.0);
+          return smoothstep(0.01, 0.015, wave);
+        }
+
+        float scanline(vec2 uv, float t) {
+          float y = fract(t * 0.2);
+          return smoothstep(y - 0.01, y, uv.y) - smoothstep(y, y + 0.01, uv.y);
+        }
+
+        float fractilize(float f, float t) {
+          float st = sin(pow(f, t));
+          float smh = S(smoothstep(st + f, t, st));
+          float tx = fract(fract(st) + smh);
+          return tx;
+        }
+      
+        // Smoothstep interpolation function for blending
+        float smoothTime(float t) {
+          float u = t * t * (3.0 - 2.0 * t); // Standard smoothstep easing
+          float blend = smoothstep(
+            S(u + (t *  time)), 
+            sqrt(u + sin(t * time)), 
+            sqrt(u)
+          );
+          return blend;
+        }
+
+        float smoothFloatTime(float t) {
+          float u = t * t * (3.0 - 2.0 * t);
+          float a = u;
+          float b = u + sin(t * 1.5);
+          float x = sqrt(u);
+          return smoothstep(a, b, x);
+        }
+        
+        // Smoothstep interpolation function for blending
+        float blendView(vec3 p, float t) {
+          float u = sin(t * t * (3.0 - 2.0 * t));
+          float v = pow(t, u);
+          float mv = fract(v);
+          float s = sdSphere(p, smoothTime(mv));
+          float blend = smoothstep(
+            S(time * (t + mv)), 
+            S(pow(u, sin(t + u))), 
+            s
+          );
+
+          return blend * sqrt(blend * time);
+        }
+
+        vec3 colorPallete(vec3 p, vec3 color, vec2 u, vec2 m, float shadowIntensity, float rayPower) {
+          float redBlend = blendView(p, fract(dragonSpider(p * time)));
+          float blueButter = shadowIntensity + rayPower + S(noise(u.xy * 2.0 + time * 0.7)) * shadowIntensity;
+          float bt = smoothTime(blueButter + time);
+          float greenMoney = smoothstep(bt, sin(time + bt), sqrt(time + u.x));
+          float rgR = smoothstep(shadowIntensity, (rayPower + S(noise(u.xy * 4.0 + time * 0.3)) ), shadowIntensity); 
+          float rgG = sqrt(shadowIntensity + rayPower + S(noise(u.yx * 3.0 + time * 0.5)) * smoothTime(shadowIntensity));
+          float rgB = smoothTime(blueButter + time);
+          vec3 colorBlend = vec3(rgR, rgG, rgB);
+          vec3 colorDust = vec3(smoothTime(redBlend), time + m.x, sqrt(redBlend));
+          vec3 colorButter = mix(colorBlend, colorDust, redBlend * blueButter);
+  
+          return mix(smoothstep(color, colorDust, colorButter), colorBlend, smoothstep(redBlend, blueButter, greenMoney));
+        }
+  
+        
+        float dancingSpider(vec3 p, vec2 u) {
+          vec2 pos = vec2(0.5)-u;
+          p += vec3(0.0, 0.0, -9.0 );
+      
+          float r = length(pos)*2.0;
+          float h = atan(
+                    sin(pos.y * tan(r + p.z + (sin(3. * time)) ) * sin(p.z * time)), 
+                    atan(
+                      p.z, 
+                      fract(pos.y * r)
+                    )
+                  )*length(p)*2.888;
+      
+          float a = atan(pos.y,pos.x) * h;// * time;
+          float m = 0.001 * p.z;
+          float mn = 0.01 * time;
+          float gt = m * pow(h*m, time) + mn;
+          float gh = h *cos(a*(3.088 + gt) + ((time) * p.z));
+                  vec3 v = vec3(atan(p.y,p.x* p.z));
+      
+          float f = cos(a*3.);
+          f = cos(a*3.*-1.680)+ (0.412+ sin(a*0.2)) -r;
+          // f = abs(cos(a*3.));
+          // f = abs(cos(a*2.5))*.5+.3;
+          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+          return 1.-smoothstep(f,f+0.02,r) ;
+        }
+
+        float bouncingSpider(vec3 p, vec2 u) {
+          vec2 pos = vec2(0.5)-u;
+          p += vec3(0.0, 0.0, -9.0 );
+
+          float r = length(pos)*2.0;
+          float h = atan(
+                    sin(pos.y * tan(r + p.z + (sin(3. * time)) ) * sin(p.z * time)), 
+                    atan(
+                      p.z * r, 
+                      fract(pos.y * r)
+                    )
+                  )*length(p)*.888;
+
+          float a = atan(pos.y,pos.x) * h;// * time;
+          float m = 0.001 * p.z;
+          float mn = 0.01 * time;
+          float gt = m * pow(h*m, time) + mn;
+          float gh = h *cos(a*(3.088 + gt) + ((time) * p.z));
+                  vec3 v = vec3(atan(p.y,p.x* p.z));
+
+          float f = cos(a*3.);
+          f = cos(h*a*3.*-1.680)+ (0.412+ sin(a*-0.592)) -r;
+          // f = abs(cos(a*3.));
+          // f = abs(cos(a*2.5))*.5+.3;
+          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+
+          float spider =  1.-smoothstep(f,f+0.02,r);
+          return spider;  
+        }
+
+        float whiteSpider(vec3 p, vec2 u) {
+          vec2 pos = vec2(0.5)-u;
+          p += vec3(0.0, 0.0, -9.0);
+
+          float r = length(pos)*2.0;
+          float h = atan(
+                    pos.y * p.z, 
+                    atan(
+                      p.z, 
+                      fract(pos.y)
+                    )
+                  )*length(p)*2.816;
+
+          float a = atan(pos.y,pos.x) * h;
+
+          float f = cos(a*3.);
+          f = cos(a*3.*-1.680)+ (0.412+ sin(a*0.2)) -r;
+          // f = abs(cos(a*3.));
+          // f = abs(cos(a*2.5))*.5+.3;
+          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+
+          return  1.-smoothstep(f,f+0.02,r);
+        }
+
+        void main() {
+          // UV Mapping
+          vec2 fragCoord = gl_FragCoord.xy;
+          vec2 uv = fragCoord / resolution; // Proper UV mapping
+          uv.x *= resolution.x / resolution.y;
+
+          // Normalize Mouse normalized to same space (assuming it's passed in already as [0, res])
+          vec2 mouse = (mousePosition * 2.0 - 1.0); // Convert to [-1, 1] range// either works
+          vec3 color = vec3(0.0);
+          float spider = whiteSpider(vec3(mouse*uv, -time * 8.0), uv);
+          vec3 dragon = vec3(dragonSpider(color)) * spider;
+          vec3 colorObj = colorPallete(vec3(uv, spider), dragon, uv, mouse, mouse.x, spider);
+  
+          // // Aspect ratio correction for final rendering only, not for distance
+          // vec2 aspectUV = uv;
+          // aspectUV.x *= resolution.x / resolution.y;
+          // // Center and scale position
+          // vec2 p = vec2(0.55, 0.54) - uv;
+      
+          // // Call your effect function
+          color += vec3(spider);
+          vec3 mc = mix(dragon, colorObj, spider);
+          color = mix(color, vec3(uv * mouse, spider), uv.x * time);
+  
+          // Check if hovered is active or not
+          float absT =  abs(sin(time));
+          if (hovered > 0.0) {
+            // Mouse is hovering, apply mouse interaction effects
+            float dist = distance(mouse, uv);
+            // dist +=  absT;
+  
+            // Use the distance to influence the color (make mouse position cause a color shift)
+            color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Makes the area closer to the mouse lighter (for visible effect)
+  
+            // Use distance to control the opacity
+            float opacity = smoothstep(0.0, 0.5, dist); // Opacity decreases with distance from the mouse position
+  
+            // Optionally, add time-based animation for extra dynamics
+            color *= 0.5 + 0.5 * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and time
+            // vec3 colorPallete = mix(color, colorBlend, smoothstep(redBlend, blueButter, greenMon
+            color += mix(color, colorObj, time);//fract( * absT); //, sin(dist * (uv.x + time)));
+  
+            gl_FragColor = vec4(color, opacity);
+          } else {
+            // Mouse is not hovering, apply default effect based on UV coordinates and distance
+            float dist = distance(uv, vec2(0.5, 0.5)); // Default base distance, could be replaced with your original calculation
+            color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Use original UV-distance-based coloring
+            color *= 0.5 + 0.5 * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and time
+            // vec3 colorObj = mix(color, colorBlend, smoothstep(redBlend, blueButter, greenMoney));
+            color += mix(color, colorObj, absT);
+            float opacity = smoothstep(0.6, 0.8, 1.0);
+            gl_FragColor = vec4(color, opacity); // Default behavior
+          }
+
+          // gl_FragColor = vec4(color, 1.0);
+        }
+      
+      `
+    }
+        
+        vec3 sandyLandScape(vec3 p, vec2 u) {
+          vec2 pos = vec2(0.5)-u;
+          p += vec3(0.0, 0.0, -9.0 );
+      
+          float r = length(pos)*2.0;
+          float h = atan(
+                    sin(pos.y * tan(r + p.z + (sin(3. * time)) ) * sin(p.z * time)), 
+                    atan(
+                      p.z, 
+                      fract(pos.y * r)
+                    )
+                  )*length(p)*2.888;
+      
+          float a = atan(pos.y,pos.x) * h * .12;// * time;
+          float m = 0.001 * p.z;
+          float mn = 0.01 * time;
+          float gt = m * pow(h*m, time) + mn;
+          float gh = h *cos(a*(3.088 + gt) + ((time) * p.z));
+                  vec3 v = vec3(atan(p.y,p.x* p.z));
+      
+          float f = cos(a*3.);
+          f = cos(a*3.*-1.680)+ (0.412+ sin(a*0.2)) -r*gh;
+          // f = abs(cos(a*3.));
+          // f = abs(cos(a*2.5))*.5+.3;
+          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+          float landscape = 1.-smoothstep(f,f+0.02,r) ;
+          vec3 shape = vec3(landscape, a, h);
+        }
+
+
+
+
+float sdSnake(vec3 p, vec2 a, float h) {
+    vec3 q = abs(p) - (a.x * a.y * h); 
+	return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+        
+        float dancingSpider(vec3 p, vec2 u) {
+          vec2 pos = vec2(0.5)-u;
+          p += vec3(0.0, 0.0, -9.0 );
+      
+          float r = length(pos)*2.0;
+          float h = atan(
+                    sin(pos.y * tan(r + p.z + (sin(3. * time)) ) * sin(p.z * time)), 
+                    atan(
+                      p.z, 
+                      fract(pos.y * r)
+                    )
+                  )*length(p)*2.888;
+      
+          float a = atan(pos.y,pos.x) * h * .12;// * time;
+          float m = 0.001 * p.z;
+          float mn = 0.01 * time;
+          float gt = m * pow(h*m, time) + mn;
+          float gh = h *cos(a*(3.088 + gt) + ((time) * p.z));
+                  vec3 v = vec3(atan(p.y,p.x* p.z));
+      
+          float f = cos(a*3.);
+          f = cos(a*3.*-1.680)+ (0.412+ sin(a*0.2)) -r*gh;
+          // f = abs(cos(a*3.));
+          // f = abs(cos(a*2.5))*.5+.3;
+          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+          return 1.-smoothstep(f,f+0.02,r) ;
+        }
+
+
+
+        // Author @patriciogv - 2015
+// http://patriciogonzalezvivo.com
+
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+uniform float u_time;
+
+float hash(float n) {
+    return fract(sin(n) * 43758.5453);
+}
+
+float noise(float x) {
+    float i = floor(x);
+    float f = fract(x);
+    float u = f*f*(3.0-2.0*f);
+    return mix(hash(i), hash(i+1.0), u);
+}
+
+// Digit-based angle term (e.g., spinning/oscillation)
+float at(float n, vec2 pos) {
+    float base = pow(10.0, - n);
+    return atan(pos.y, pos.x) * base;
+}
+
+// Digit-based position term
+float pt(float n, vec3 p, float time) {
+    float base = pow(10.0, -n);
+    return base * length(p) * sin(time * base);
+}
+
+float gp(float a, float r, float n) {
+    float progression = a * pow(r, (n - 1.0));
+    return progression;
+}
+
+// Digit-based growth term
+float gt(int n, float h, float pz, float time) {
+    float base = pow(10.0, -float(n)); // Scale for target decimal
+    float amp = base * pz; // Positional influence
+    float osc = base * sin(time * 2.0); // Oscillating offset
+    return amp * pow(h * amp, time) + osc;
+}
+
+float euler(float t, float rate, float decay) {
+    return exp(-decay * t) * sin(rate * t);
+}
+
+float multiplyDecimalPlace(float base, float place, float magnitude) {
+    float delta = pow(10.0, - place) * magnitude;
+    return base + delta;
+}
+    // float result = shiftDigit(0.12345, 3, 7.0); // change 3rd decimal by 7 → 0.12345 + 0.007 = 0.13045
+float computeDigitStep(float decimalPlace, float multiplier) {
+    return pow(10.0, - decimalPlace) * multiplier;
+}
+
+float oscillateDigitStep(float base, int place, float freq, float time) {
+    float amp = pow(10.0, -float(place));
+    return base + amp * sin(time * freq);
+}
+
+// Smoothed precision step
+float smoothDigitStep(float base, float place, float magnitude) {
+    float delta = pow(10.0, -place) * magnitude;
+    float t = smoothstep(0.0, 1.0, fract(u_time)); // smooth transition over 1 second
+    return mix(base, base + delta, t);
+}
+
+float bounce(float t, float freq, float scale) {
+    return abs(sin(t * freq)) * scale;
+}
+
+float randomOsc(float t, float freq, float seed) {
+    return fract(sin(t * freq + seed) * 43758.5453);
+}
+/* //Combine with mix():
+float offset = mix(0.0, pow(10.0, -3.0), bounce(u_time, 2.0, 1.0));
+*/
+
+float organicMotion(vec3 p, float t) {
+    return noise(p.x *(p.y *sin(p.x * p.z))* 0.1* t * 0.2) * 0.005;
+}
+
+vec3 computeDistribution(float p, float h) {// Digit-specific precise multipliers
+    float m = pow(10.0, -3.0) * p;       // 0.001 * p.z with full precision
+    float mn = pow(10.0, -2.0) * u_time;     // 0.01 * time with full precision
+
+    // Optional: Even more dynamic control
+    float growthRate = pow(10.0, -3.0);    // fine-tuned growth per frame
+    float gt = m * pow(h * m, u_time) + mn + growthRate * sin(u_time * 2.0);
+
+    vec3 distribution = vec3(m, mn, gt);
+    return distribution;
+}
+/* and this slider method looks wierd, no body or retrun
+uniform float u_precision; // range 1.0 to 4.0
+int n = int(u_precision);
+*/
+float gaussian(float x, float mean, float sigma) {
+    return (1.0 / (sigma * sqrt(6.2831))) * exp(-pow(x - mean, 2.0) / (2.0 * sigma * sigma));
+}
+
+// Primes up to the 16th (more if needed)
+float getPrime(int index) {
+    if (index == 0) return 2.0;
+    if (index == 1) return 3.0;
+    if (index == 2) return 5.0;
+    if (index == 3) return 7.0;
+    if (index == 4) return 11.0;
+    if (index == 5) return 13.0;
+    if (index == 6) return 17.0;
+    if (index == 7) return 19.0;
+    if (index == 8) return 23.0;
+    if (index == 9) return 29.0;
+    return 31.0; // default if index too high
+}
+
+//float pTime = primeModTime(4); // time / 11.0
+float primeModTime(int index) {
+    return u_time * (1.0 / getPrime(index));
+}
+
+float fadePrimeTime(int n){
+    float mixTime = mix(
+        primeModTime(n+2), 
+        primeModTime(n+5), 
+        sin(u_time * 0.1) * 0.5 + 0.5
+    );
+    return mixTime;
+}
+
+vec3 colorTime() {
+    float r = 0.5 + 0.5 * sin(u_time);
+    float g = 0.5 + 0.5 * sin(u_time + 2.0);
+    float b = 0.5 + 0.5 * sin(u_time + 4.0);
+    vec3 pallete = vec3(r, g, b);
+    return pallete;
+}
+
+void main(){
+    vec2 uv = gl_FragCoord.xy/u_resolution.xy;
+    vec3 color = vec3(0.0);
+
+    vec2 pos = vec2(0.5)-uv;
+
+    float r = length(pos)*2.0;
+    float a = atan(pos.y,pos.x);
+
+    float f = cos(a*3.);
+    // f = abs(cos(a*3.));
+    // f = abs(cos(a*2.5))*.5+.3;
+    // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
+    // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+
+    color = vec3( 1.-smoothstep(f,f+0.02,r) );
+
+    gl_FragColor = vec4(color, 1.0);
+}
+

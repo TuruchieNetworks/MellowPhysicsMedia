@@ -1,41 +1,49 @@
 import * as THREE from 'three';
+import BeachShaderMaterials from '../Shaders/BeachShaderMaterials';
 import ConvolutionShaderMaterials from '../Shaders/ConvolutionShaderMaterials';
+import DragonCityShaderMaterials from '../Shaders/DragonCityShaderMaterials';
 import ExplosiveShaderMaterials from '../Shaders/ExplosiveShaderMaterials';
 import FrequencyShaderMaterials from '../Shaders/FrequencyShaderMaterials';
+import GalacticEuphoricShaderMaterials from '../Shaders/GalacticEuphoricShaderMaterials';
+import GalacticLakeWaterShaderMaterials from '../Shaders/GalacticLakeWaterShaderMaterials';
+import GiantBugsShaderMaterials from '../Shaders/GiantBugsShaderMaterials';
+import GrailShaderMaterials from '../Shaders/GrailShaderMaterials.js';
 import GraphShaderMaterials from '../Shaders/GraphShaderMaterials';
+import GrassFieldMaterial from '../Shaders/GrassFieldMaterials';
+import LandScapeMaterials from '../Shaders/LandScapeMaterials';
 import LucentShadereMaterials from '../Shaders/LucentShadaerMaterials';
+import MangroveShaderMaterials from '../Shaders/MangroveShaderMaterials';
 import MoltenTerrazoMaterials from '../Shaders/MoltenTerrazoMaterials';
 import NoiseShaderMaterials from '../Shaders/NoiseShaderMaterials';
+import ParkCityShaderMaterials from '../Shaders/ParkCityShaderMaterials';
+import RainForestLandScapeShaderMaterials from '../Shaders/RainForestLandScapeShaderMaterials';
+import SandyPlainShaderMaterials from '../Shaders/SandyPlainShaderMaterials';
+import SavannahShaderMaterials from '../Shaders/SavannahShaderMaterials';
 import SawShaderMaterials from '../Shaders/SawShaderMaterials';
 import SkyLineMaterials from '../Shaders/SkyLineMaterials';
+import SwampShaderMaterials from '../Shaders/SwampShaderMaterials';
 import TerrainShaderMaterials from '../Shaders/TerrainShaderMaterials';
 import TerrestialMosaicMaterials from '../Shaders/TerrestialMosaicMaterials';
 import TunnelTubeCityMaterials from '../Shaders/TunnelTubeCityMaterials';
 import WrinkledShaderMaterials from '../Shaders/WrinkledShaderMaterials';
 
 class ShaderManager {
-  constructor(width = window.innerWidth,
-    height = window.innerHeight,
-    deltaTime = 1 / 60,
-    time = 0.1,
-    shapeFactor = 0.5,
-    cubeTexture = null,
-    explodeIntensity = 0.1,
-    thickness = 1,
-    flatShading = true,
-    u_frequency = 0.0,
-    mouse = null) {
-    this.width = width;
-    this.height = height;
-    this.time = time;
-    this.u_frequency = u_frequency;
-    this.thickness = thickness;
-    this.explodeIntensity = explodeIntensity;
-    this.flatShading = flatShading;
-    this.deltaTime = deltaTime;
-    this.shapeFactor = shapeFactor;
-    this.cubeTexture = cubeTexture;
+  constructor(params,
+    mouse = null) {   
+    // this.params = {
+    //   width: params.width ?? window.innerWidth,
+    //   height: params.height ?? window.innerHeight,
+    //   time: params.time ?? 0.1,
+    //   deltaTime: params.deltaTime ?? 1 / 60,
+    //   shapeFactor: params.shapeFactor ?? 0.5,
+    //   cubeTexture: params.cubeTexture ?? null,
+    //   explodeIntensity: params.explodeIntensity ?? 0.1,
+    //   thickness: params.thickness ?? 1,
+    //   flatShading: params.flatShading ?? true,
+    //   u_frequency: params.u_frequency ?? 0.0,
+    // }
 
+    this.params = params;
     // Mouse Utils
     this.mouse = mouse;
     this.mousePosition = this.mouse.mouse;
@@ -48,16 +56,17 @@ class ShaderManager {
 
   initializeManagers(ShaderClass) {
     return new ShaderClass(
-      this.width,
-      this.height,
-      this.deltaTime,
-      this.time,
-      this.shapeFactor,
-      this.cubeTexture,
-      this.explodeIntensity,
-      this.thickness,
-      this.flatShading,
-      this.u_frequency,
+      // this.width,
+      // this.height,
+      // this.deltaTime,
+      // this.time,
+      // this.shapeFactor,
+      // this.cubeTexture,
+      // this.explodeIntensity,
+      // this.thickness,
+      // this.flatShading,
+      // this.u_frequency,
+      this.params,
       this.mouse
     );
   }
@@ -87,7 +96,27 @@ class ShaderManager {
 
       //  Estate Management
       { name: 'skylineManager', material: SkyLineMaterials },
+      { name: 'landScapeManager', material: LandScapeMaterials },
+      { name: 'parkCityManager', material: ParkCityShaderMaterials },
       { name: 'terrestialManager', material: TerrestialMosaicMaterials },
+      { name: 'dragonCityManager', material: DragonCityShaderMaterials },
+      // { name: 'grailManager', material: GrailShaderMaterials },
+
+      // Water Scenery
+      { name: 'beachManager', material: BeachShaderMaterials }, 
+      { name: 'bugManager', material: GiantBugsShaderMaterials },
+      { name: 'mangroveManager', material: MangroveShaderMaterials},
+
+      // Forest LandScape
+      // { name: 'swampManager', material: SwampShaderMaterials },
+      { name: 'lakeManager', material: GalacticLakeWaterShaderMaterials },
+      { name: 'forestManager', material: RainForestLandScapeShaderMaterials },
+      { name: 'tropicalManager', material: RainForestLandScapeShaderMaterials },
+
+      // Tropical Grass and Savannah
+      { name: 'grassManager', material: GrassFieldMaterial },
+      { name: 'savannahManager', material: SavannahShaderMaterials },
+      { name: 'sandyPlainManager', material: SandyPlainShaderMaterials},
     ];
 
     // Loop through each manager and initialize them
@@ -99,10 +128,30 @@ class ShaderManager {
       this[name] = manager;
       this.shaderManagers[name] = manager;
     });
-
   }
 
   setShaderMaterials() {
+    // this.managers = [
+    //   this.sawManager,
+    //   this.noiseManager,
+    //   this.explosiveManager,
+    //   this.convolutionManager, 
+    //   this.frequencyManager, 
+    //   this.terrestialManager,
+    //   this.wrinkledManager, 
+    //   this.terrainManager, 
+    //   this.tunnelManager, 
+    //   this.dragonCityManager, 
+    //   this.skylineManager, 
+    //   this.moltenManager, 
+    //   this.lucentManager, 
+    //   this.sandyPlainManager,
+    //   this.landScapeManager,  
+    //   this.parkCityManager, 
+    //   this.bugManager, 
+    //   this.lakeManager
+    // ]
+
     this.shaderMaterials = {};
 
     for (const [managerName, managerInstance] of Object.entries(this.shaderManagers)) {
@@ -114,6 +163,106 @@ class ShaderManager {
       }
     }
   }
+
+  setShaders() {
+    this.shaders = [];
+    this.allShaders = {};
+  
+    Object.entries(this.shaderManagers).forEach(([name, manager]) => {
+      if (Array.isArray(manager.shaders)) {
+        this.shaders.push(...manager.shaders);
+        this.allShaders[name] = manager.shaders;
+      }
+    });
+  }
+  
+  computeVelocity(v) {
+    return new THREE.Vector3(
+      v.x + 5.0,
+      v.y + Math.sin(v.y),
+      v.z + 1.0
+    );
+  }
+  
+  coolDownRipples(u, meshObj) {
+    const id = meshObj.uuid || meshObj.id;
+    const cooldownMs = 300;
+  
+    u.u_collisionDetected = 1.0;
+  
+    if (this.rippleCooldowns.has(id)) {
+      clearTimeout(this.rippleCooldowns.get(id));
+    }
+  
+    const timeoutId = setTimeout(() => {
+      u.u_collisionDetected = 0.0;
+      this.rippleCooldowns.delete(id);
+    }, cooldownMs);
+  
+    this.rippleCooldowns.set(id, timeoutId);
+  }
+  
+  applyMeshUniformUpdates(u, meshObj, hit) {
+    const now = performance.now();
+    const v = meshObj.velocity || new THREE.Vector3(0, 0, 0);
+  
+    if (u.u_meshPosition?.set) u.u_meshPosition.set(hit.x, hit.y, hit.z);
+    if (u.u_velocity?.set) u.u_velocity.copy(this.computeVelocity(v));
+    if (u.u_rippleOrigin?.set) u.u_rippleOrigin.set(hit.x, hit.y, hit.z);
+    if (u.u_intersectionPoint?.set) u.u_intersectionPoint.set(hit.x, hit.y, hit.z);
+    if (typeof u.u_rippleTime !== 'undefined') u.u_rippleTime = now * 0.001;
+    if (typeof u.u_collisionDetected !== 'undefined') this.coolDownRipples(u, meshObj);
+  }
+  
+  updateShaderUniforms(meshObj, collisionPoint = null) {
+    const hit = collisionPoint || meshObj.position;
+  
+    this.shaders.forEach(shader => {
+      const u = shader?.uniforms?.customUniforms?.value;
+      if (u) {
+        this.applyMeshUniformUpdates(u, meshObj, hit);
+      }
+    });
+  }  
+  
+  handleResize(width = window.innerWidth, height = window.innerHeight) {
+    // Each shader handles its own resolution updates
+    Object.values(this.shaderManagers).forEach(manager => {
+      if (manager?.handleResize instanceof Function) {
+          manager.handleResize(width, height);
+      }
+    });
+  }
+
+  update() {
+    Object.values(this.shaderManagers).forEach(manager => {
+      if (manager?.update instanceof Function) {
+        manager.update();
+      }
+    });
+  }
+  
+}
+export default ShaderManager;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   // Saw and Noise Manager
 
@@ -254,32 +403,10 @@ class ShaderManager {
   // }
 
   // Update method for shader uniforms and dynamic behavior
-  update() {
-    [this.sawManager, this.noiseManager, this.explosiveManager,
-    this.convolutionManager, this.frequencyManager, this.terrestialManager,
-    this.wrinkledManager, this.terrainManager, this.tunnelManager,
-    this.skylineManager, this.moltenManager, this.lucentManager].forEach(manager => {
-      if (manager && typeof manager.update === 'function') {
-        manager.update();
-      }
-    });
-    // // Noise and Saw Managers Updates
-    // if (this.sawManager) this.sawManager.update();
-    // if (this.noiseManager) this.noiseManager.update();
-
-    // // Convolutions and Explosive Managers Updates
-    // if (this.explosiveManager) this.explosiveManager.update();
-    // if (this.convolutionManager) this.convolutionManager.update();
-
-    // // Wrinkled Managers Updates 
-    // if (this.wrinkledManager) this.wrinkledManager.update();
-    // // if (this.wrinkledBubbleManager) this.wrinkledBubbleManager.update();
-
-    // // Music-Frequency Managers Updates
-    // if (this.frequencyManager) this.frequencyManager.update();
-
-    // // Terrain Manager
-    // if (this.terrainManager) this.terrainManager.update();
-  }
-}
-export default ShaderManager;
+  // update() {
+  // this.managers.forEach(manager => {
+  //     if (manager && typeof manager.update === 'function') {
+  //       manager.update();
+  //     }
+  //   });
+  // }

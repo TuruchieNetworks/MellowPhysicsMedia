@@ -1,35 +1,29 @@
 import * as THREE from 'three';
 
 export class WrinkledShaderMaterials {
-  constructor(width = window.innerWidth,
-    height = window.innerHeight,
-    deltaTime = 1 / 60,
-    time = 0.1,
-    shapeFactor = 0.5,
-    cubeTexture = null,
-    explodeIntensity = 0.1,
-    thickness = 1,
-    flatShading = true,
-    u_frequency = 0.0,
-    mousePosition) {
-    this.width = width;
-    this.height = height;
-    this.time = time;
-    this.u_frequency = u_frequency;
-    this.thickness = thickness;
-    this.explodeIntensity = explodeIntensity;
-    this.flatShading = flatShading;
-    this.deltaTime = deltaTime;
-    this.shapeFactor = shapeFactor;
-    this.cubeTexture = cubeTexture;
-    this.hovered = 0.1;
+  constructor(params,
+    mouse) {
+    this.params = params;
+    this.width = this.params.width ?? window.innerWidth;
+    this.height = this.params.height ?? window.innerHeight;
+    this.clock = this.params.clock ?? new THREE.Clock();
+    this.sineTime = this.params.sineTime ?? 0.0;
+    this.time = this.params.time ?? this.clock.getElapsedTime();
+    this.deltaTime = this.params.deltaTime ?? 1 / 60;
+    this.shapeFactor = this.params.shapeFactor ?? 0.5;
+    this.cubeTexture = this.params.cubeTexture ?? null;
+    this.explodeIntensity = this.params.explodeIntensity ?? 0.1;
+    this.u_frequency = this.params.u_frequency ?? 0.0;
+    this.hovered = this.params.hovered ?? 0.1;
 
     // Mouse Utils
-    this.mousePosition = mousePosition;
+    this.mouse = mouse;
+    this.mousePosition = this.mouse;
 
     this.useWrinkledShader();
     this.useWrinkledCoalSDFShader();
-    // this.updateEvents();
+    this.updateEvents();
+    this.getShaders();
   }
 
   useWrinkledShader() {
@@ -40,7 +34,10 @@ export class WrinkledShaderMaterials {
         shapeFactor: { value: this.shapeFactor },
         mousePosition: { value: new THREE.Vector2(this.mousePosition ) },
         hovered: { value: this.hovered },
-        explodeIntensity: { value: this.explodeIntensity }
+        explodeIntensity: { value: this.explodeIntensity },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }
       },
 
       vertexShader: `
@@ -111,7 +108,9 @@ export class WrinkledShaderMaterials {
         shapeFactor: { value: this.shapeFactor },
         explodeIntensity: { value: this.explodeIntensity },
         mousePosition: { value: new THREE.Vector2(this.mousePosition ) },
-        // mousePosition: { value: new THREE.Vector2(this.mousePosition.x / this.width, this.mousePosition.y / this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms },
       },
 
       vertexShader: `
@@ -314,39 +313,47 @@ export class WrinkledShaderMaterials {
     this.wrinkledCoalSDFMaterial = new THREE.ShaderMaterial(this.wrinkledCoalSDFShader);
   }
 
+  getShaders() {
+    this.shaders = [
+      this.wrinkledShader, 
+      this.wrinkledCoalSDFShader,
+    ];
+  }
+
   updateResolution(shader, width, height) {
     if (shader && shader.uniforms && shader.uniforms.resolution) {
       shader.uniforms.resolution.value.set(width, height);
     }
   }
 
-  handleResize(renderer, width = window.innerWidth, height = window.innerHeight) {
-    if (!renderer) return;
+  handleResize(width = window.innerWidth, height = window.innerHeight) {
     // Each shader handles its own resolution updates
-    if (this.wrinkledShader) this.updateResolution(this.wrinkledShader, width, height);
-    if (this.wrinkledCoalSDFShader) this.updateResolution(this.wrinkledCoalSDFShader, width, height);
+    this.shaders.forEach(shader => {if (shader) this.updateResolution(shader, width, height)});
   }
 
+  // Handle hover effect on shaders
   handleHoverEffect(shader, mousePosition) {
-    if (!shader && mousePosition) return;
-    // Update the shader with the current mouse position and toggle the effect
-    shader.uniforms.mousePosition.value = mousePosition;
-    shader.uniforms.hovered.value = 1.0;
+    if (shader && mousePosition) {
+      // Update hover effect uniforms
+      shader.uniforms.hovered.value = 1.0;
+      shader.uniforms.mousePosition.value =  new THREE.Vector2(mousePosition.x, mousePosition.y);
+
+      // Dynamically update explodeIntensity based on time and mouse hover
+      shader.uniforms.explodeIntensity.value = Math.sin(this.explodeIntensity + this.time);
+      shader.uniforms.shapeFactor.value = this.shapeFactor + (this.time * Math.sin(0.001 + this.time));
+    }
   }
 
   updateHoverEffect(event) {
     if (event && this.mousePosition) {
       this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
       this.mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
-      // this.mouseUtils.updateMouse(event);
     }
   
-    // Copy Updated Mouse Position
-    // this.mousePosition = this.mouseUtils.getMousePosition();
-
     // Update the shader with the current mouse position and toggle the effect
-    if (this.wrinkledShader) this.handleHoverEffect(this.wrinkledShader, this.mousePosition);
-    if (this.wrinkledCoalSDFShader) this.handleHoverEffect(this.wrinkledCoalSDFShader, this.mousePosition);
+    this.shaders.forEach(shader => {
+      if (shader) this.handleHoverEffect(shader, this.mousePosition);
+    });
   }
 
   updateEvents() {
@@ -354,23 +361,21 @@ export class WrinkledShaderMaterials {
       this.updateHoverEffect(e);
     });
   }
+
   // Update method for shader uniforms and dynamic behavior
   update() {
-    // this.addMouseListener()
+    // const elapsed = this.clock.getElapsedTime(); // Straigth InfiniteTime
     this.time += this.deltaTime; // Update time for animation
 
-    // Update other uniforms if necessary
-    if (this.wrinkledShader) {
-      this.wrinkledShader.uniforms.shapeFactor.value = this.time * Math.sin(0.001 + this.time);
-      this.wrinkledShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-      this.wrinkledShader.uniforms.explodeIntensity.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
-
-    if (this.wrinkledCoalSDFShader) {
-      this.wrinkledCoalSDFShader.uniforms.shapeFactor.value = this.time * Math.sin(0.001 + this.time);
-      this.wrinkledCoalSDFShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-      this.wrinkledCoalSDFShader.uniforms.explodeIntensity.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
+    //Update other uniforms if necessary// 
+    this.shaders.forEach(shader => {
+      if (shader) {
+        // shader.uniforms.infiniteTime.value =  elapsed;
+        shader.uniforms.shapeFactor.value = this.time * Math.sin(0.001 + this.time);
+        shader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
+        shader.uniforms.explodeIntensity.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
+      }
+    });
   }
 }
 export default WrinkledShaderMaterials

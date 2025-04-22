@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import MusicUtils from '../player/MusicUtils';
 import useUIUtils from './useUIUtils';
 import useTrackInfo from './useTrackInfo';
 import useUIEvents from './useUIEvents';
 
-const useAudioPlayer = () => {
+const useAudioPlayer = ({ seekSliderRef, volumeRef }) => {
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -21,8 +21,8 @@ const useAudioPlayer = () => {
   const [currentSeconds, setCurrentSeconds] = useState(0);
   const [durationMinutes, setDurationMinutes] = useState(0);
   const [durationSeconds, setDurationSeconds] = useState(0);
-  const [updateTimer, setUpdateTimer] = useState(0);
-  const [updateInterval, setUpdateInterval] = useState(0);
+  const updateTimer = useRef(0);
+  const updateInterval = useRef(0);
   const [wave, setWave] = useState('wave');
   const [randomIcon, setRandomIcon] = useState('fa-random');
   const [isMuted, setIsMuted] = useState(false); // Track mute state
@@ -32,26 +32,22 @@ const useAudioPlayer = () => {
   const [randomIndex, setRandomIndex] = useState(0);
   const musicUtils = new MusicUtils();
   const musicList = musicUtils.getMusicList();
-  const [currentTrack, setCurrentTrack] = useState(new Audio());
   const [user, setUser] = useState(null);
-  const { timeConverter } = useUIUtils();
+  const [currentTrack, setCurrentTrack] = useState(new Audio());
+  const {  updateCurrentTrack, formatPlayerTimer } = useUIUtils();
 
-  const { 
+  const {
     // trackArt, 
-    nowPlaying, 
-    updateTrackInfo, 
+    nowPlaying,
+    updateTrackInfo,
     setTrackArt
   } = useTrackInfo(trackIndex, isPlaying);
 
-  const { 
-    logoLeads,
-    cardClass,
-    dynamicMessage, 
-    dynamicLeadClasses,
+  const {
     toggleLogo,
-    landingHover, 
-    updateInfoCard, 
-    setLogoLeads, 
+    landingHover,
+    updateInfoCard,
+    setLogoLeads,
     // setDynamicLeadClasses
   } = useUIEvents(trackIndex, isPlaying, nowPlaying);
 
@@ -68,18 +64,20 @@ const useAudioPlayer = () => {
   }, []);
 
   useEffect(() => {
+    setUpdate();
     // Load initial track
     loadTrack(trackIndex);
 
     // Set interval for updating track information
     const intervalId = setInterval(() => {
       // Update track information
-      setUpdate();
+      if (!currentTrack.paused || isPlaying) {
+        setUpdate();
+      } else {
+        // reset();
+        clearInterval(updateTimer.current);
+      }
 
-      // Update dynamic content for track info and logo
-      toggleLogo();
-      updateInfoCard();
-      updateTrackInfo(trackIndex, isPlaying)
     }, 1000);
 
     // Cleanup interval on component unmount
@@ -87,26 +85,23 @@ const useAudioPlayer = () => {
   }, [trackIndex]);
 
   const loadTrack = () => {
-    // clearInterval(updateTimer);
-    //convertTime(currentTrack.duration)
     reset();
 
     // Set the new track information
     currentTrack.src = musicList[trackIndex].music;
-  
-    // Update track info using the hook's function
-    updateTrackInfo(trackIndex); 
-    isPlaying? 
-    currentTrack.play():
-    currentTrack.pause();
-  
-    currentTrack.addEventListener('loadedmetadata', () => {
-      // Set total duration once track metadata is loaded
-      const formattedTotalDuration = timeConverter(currentTrack.duration);
-      setTotalDuration(formattedTotalDuration);
-    });
 
-    setUpdateTimer(setInterval(setUpdate, 1000));
+    // Update dynamic content for track info and logo
+    toggleLogo();
+    updateInfoCard();
+    updateTrackInfo(trackIndex, isPlaying);
+
+    isPlaying ?
+      currentTrack.play() :
+      currentTrack.pause();
+
+    updateCurrentTrack(currentTrack, setTotalDuration, setCurrentTime, setRemainingDuration);
+
+    // setUpdateTimer(setInterval(setUpdate, 1000));
     currentTrack.addEventListener('ended', nextTrack);
   }
 
@@ -114,7 +109,7 @@ const useAudioPlayer = () => {
     setCurrentTime(0.00);
     updateInfoCard(); // Add this line
     setSeekSlider(0);
-    clearInterval(updateTimer);
+    clearInterval(updateTimer.current);
   }
 
   const randomTrack = () => {
@@ -162,7 +157,7 @@ const useAudioPlayer = () => {
   }
 
   const stopTrack = () => {
-    clearInterval(updateInterval);
+    clearInterval(updateInterval.current);
     currentTrack.pause();
     currentTrack.currentTime = 0;
     setIsPlaying(false);
@@ -171,29 +166,25 @@ const useAudioPlayer = () => {
     reset();
   }
 
-  const nextTrack = () => { 
+  const nextTrack = () => {
     if (isRepeat) {
       currentTrack.currentTime = 0;
       playTrack();
-    } else 
-    if (trackIndex < musicList.length - 1 && !isRandom) {
-      setTrackIndex(trackIndex + 1);
-      setCurrentIndex(trackIndex + 1);
-    } else if (isRandom) {
-      setRandomIndex(Math.floor(Math.random() * musicList.length));
-      setTrackIndex(randomIndex);
-    }
-    else {
-      setTrackIndex(0);  // If it's the last track, go back to the first one
-    }
-
-    //playpauseTrack();  // Start playing the track
+    } else
+      if (trackIndex < musicList.length - 1 && !isRandom) {
+        setTrackIndex(trackIndex + 1);
+        setCurrentIndex(trackIndex + 1);
+      } else if (isRandom) {
+        setRandomIndex(Math.floor(Math.random() * musicList.length));
+        setTrackIndex(randomIndex);
+      }
+      else {
+        setTrackIndex(0);  // If it's the last track, go back to the first one
+      }
   };
 
   const prevTrack = () => {
     setTrackIndex(trackIndex > 0 ? trackIndex - 1 : musicList.length - 1);
-    // loadTrack(trackIndex);
-    //playTrack();
   }
 
   // When the user interacts with the seek slider
@@ -211,7 +202,7 @@ const useAudioPlayer = () => {
       console.error('Event or event.target is undefined');
     }
   };
-  
+
   const setVolume = (newVolume) => {
     currentTrack.volume = newVolume / 100;
     setVolumeSlider(newVolume); // Sync the volume slider with the actual volume
@@ -233,41 +224,23 @@ const useAudioPlayer = () => {
   };
 
   const setUpdate = () => {
-    console.log('Updating track information...');
-    console.log('Current Time:', currentTrack.currentTime);
-    console.log('Duration:', currentTrack.duration);
-    console.log('Play State: ', isPlaying);
-    console.log('Repeat State: ', isRepeat);
-  
     if (!isNaN(currentTrack.duration)) {
       const newDuration = currentTrack.duration;
       const newCurrentTime = currentTrack.currentTime;
       const newSeekSliderValue = (newCurrentTime / newDuration) * 100;
-  
+
       // Update seekSlider value only if it's not manually changed
       if (seekSlider !== newSeekSliderValue) {
         setSeekSlider(newSeekSliderValue);
         console.log(isPlaying)
       }
-  
-      const newCurrentMinutes = Math.floor(newCurrentTime / 60);
-      const newCurrentSeconds = Math.floor(newCurrentTime - newCurrentMinutes * 60);
-      const newDurationMinutes = Math.floor(newDuration / 60);
-      const newDurationSeconds = Math.floor(newDuration - newDurationMinutes * 60);
-  
-      setCurrentMinutes(newCurrentMinutes);
-      setCurrentSeconds(newCurrentSeconds);
-      setDurationMinutes(newDurationMinutes);
-      setDurationSeconds(newDurationSeconds);
-  
-      // Using timeConverter from useUIUtils
-      const formattedCurrentTime = timeConverter(newCurrentTime);
-      const formattedRemainingTime = timeConverter(newDuration - newCurrentTime);
-      const formattedTotalDuration = timeConverter(currentTrack.duration);
 
-      setTotalDuration(formattedTotalDuration);
-      setCurrentTime(formattedCurrentTime);
-      setRemainingDuration(formattedRemainingTime);
+      // Delegate formatting logic
+      formatPlayerTimer(
+        currentTrack, newCurrentTime, newDuration, 
+        setCurrentMinutes, setCurrentSeconds, setDurationMinutes, 
+        setDurationSeconds, setCurrentTime, setRemainingDuration, setTotalDuration
+      );
     }
   };
 
@@ -343,4 +316,3 @@ export default useAudioPlayer;
   //     console.warn("Invalid volume value:", newVolume);
   //   }
   // };
-  

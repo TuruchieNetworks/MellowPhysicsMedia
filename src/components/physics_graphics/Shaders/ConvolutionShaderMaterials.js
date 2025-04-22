@@ -1,34 +1,29 @@
 import * as THREE from 'three';
 
 export class ConvolutionShaderMaterials {
-  constructor(width = window.innerWidth,
-    height = window.innerHeight,
-    deltaTime = 1 / 60,
-    time = 0.1,
-    shapeFactor = 0.5,
-    cubeTexture = null,
-    explodeIntensity = 0.1,
-    thickness = 1,
-    flatShading = true,
-    u_frequency = 0.0,
-    mousePosition) {
-    this.width = width;
-    this.height = height;
-    this.time = time;
-    this.u_frequency = u_frequency;
-    this.thickness = thickness;
-    this.explodeIntensity = explodeIntensity;
-    this.flatShading = flatShading;
-    this.deltaTime = deltaTime;
-    this.shapeFactor = shapeFactor;
-    this.cubeTexture = cubeTexture;
-    this.hovered = 0.1;
+  constructor(params,
+    mouse) {
+    this.params = params;
+    this.width = this.params.width ?? window.innerWidth;
+    this.height = this.params.height ?? window.innerHeight;
+    this.clock = this.params.clock ?? new THREE.Clock();
+    this.sineTime = this.params.sineTime ?? this.params.time;
+    this.time = this.params.time ?? this.clock.getElapsedTime();
+    this.deltaTime = this.params.deltaTime ?? 1 / 60;
+    this.shapeFactor = this.params.shapeFactor ?? 0.5;
+    this.cubeTexture = this.params.cubeTexture ?? null;
+    this.explodeIntensity = this.params.explodeIntensity ?? 0.1;
+    this.thickness = this.params.thickness ?? 1;
+    this.flatShading = this.params.flatShading ?? true;
+    this.u_frequency = this.params.u_frequency ?? 0.0;
+    this.hovered = this.params.hovered ?? 0.0;
 
     // Mouse Utils
-    this.mousePosition = mousePosition;
+    this.mousePosition = mouse;
 
     this.useConvolutionShader();
-    // this.updateEvents();
+    this.updateEvents();
+    this.getShaders();
   }
 
   // gl_FragColor = vec4(vec3(value + burst), 1.0); // Change the color based on the shader output
@@ -43,12 +38,14 @@ export class ConvolutionShaderMaterials {
         u_ampFactor: { value: 1.0 }, // Amplitude factor to scale frequency effects
         u_perlinScale: { value: new THREE.Vector2(50.0, 20000.0) }, // Frequency scale for Perlin noise (50Hz to 20,000Hz)
         hovered: { value: this.hovered },
-        mousePosition: { value: this.mousePosition},
-        // mousePosition: { value: new THREE.Vector2(this.mousePosition.x / this.width, this.mousePosition.y / this.height) },
+        mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
         backgroundTexture: { value: this.cubeTexture },
         side: { value: this.side }, // Retain the side parameter
         flatShading: { value: this.flatShading }, // Retain flat shading
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
       },
 
       vertexShader: `
@@ -98,16 +95,22 @@ export class ConvolutionShaderMaterials {
     this.convolutionMaterial = new THREE.ShaderMaterial(this.convolutionShader);
   };
 
+  getShaders() {
+    this.shaders = [
+      this.convolutionShader,
+    ];
+  }
+
+
   updateResolution(shader, width, height) {
     if (shader && shader.uniforms && shader.uniforms.resolution) {
       shader.uniforms.resolution.value.set(width, height);
     }
   }
 
-  handleResize(renderer, width = window.innerWidth, height = window.innerHeight) {
-    if (!renderer) return;
+  handleResize(width = window.innerWidth, height = window.innerHeight) {
     // Each shader handles its own resolution updates
-    if (this.convolutionShader) this.updateResolution(this.convolutionShader, width, height);
+    this.shaders.forEach(shader => {if (shader) this.updateResolution(shader, width, height)});
   }
 
   handleHoverEffect(shader) {
@@ -119,15 +122,15 @@ export class ConvolutionShaderMaterials {
   }
 
   updateHoverEffect(event) {
-    if (event && this.mouseUtils.mouse) {
-      this.mouseUtils.updateMouse(event);
+    if (event && this.mousePosition) {
+      this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
+      this.mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
     }
-
-    // Update internal mousePosition
-    this.mousePosition = this.mouseUtils.getMousePosition();
-
-    // Update shaders if available
-    if (this.convolutionShader) this.handleHoverEffect(this.convolutionShader, this.mousePosition);
+  
+    // Update the shader with the current mouse position and toggle the effect
+    this.shaders.forEach(shader => {
+      if (shader) this.handleHoverEffect(shader, this.mousePosition);
+    });
   }
 
   updateEvents() {

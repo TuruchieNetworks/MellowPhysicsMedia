@@ -35,9 +35,9 @@ class GeoUtils {
 
     // Access mesh's geometry parameters to create CANNON.Box
     const dimensions = new CANNON.Vec3(
-      geometry.parameters.width,
-      geometry.parameters.height,
-      geometry.parameters.depth
+      geometry.parameters.width / 2,
+      geometry.parameters.height / 2,
+      geometry.parameters.depth / 2
     );
 
     const shape = new CANNON.Box(dimensions);
@@ -72,17 +72,20 @@ class GeoUtils {
         color: 0x00FF00 * Math.random(0x00FF00)
       }),
       // shader.shaderMaterials().sawMaterial,
-      new THREE.MeshPhongMaterial({
-        map: this.textureLoader.load(this.imageUtils.nebula),
-        color: 0x00FF00 * Math.random(0x00FF00)
-      }),
+      // new THREE.MeshPhongMaterial({
+      //   map: this.textureLoader.load(this.imageUtils.nebula),
+      //   color: 0x00FF00 * Math.random(0x00FF00)
+      // }),
       // shader.shaderMaterials().sawMaterial,
       // shader.shaderMaterials().explosiveMaterial,
       // shader.shaderMaterials().sawMaterial,
+      // Top
+      // this.shader.blendedLucentMaterial,
       new THREE.MeshPhongMaterial({
-        map: this.textureLoader.load(this.imageUtils.crowd_angle),
+        map: this.textureLoader.load(this.imageUtils.concert_lights),
         color: 0x00FF00 * Math.random(0x00FF00)
       }),
+      this.shader.dragonCityMaterial,
       // new THREE.MeshPhongMaterial({ map: this.textureLoader.load(this.imageUtils.nebula) }),
       new THREE.MeshPhongMaterial({
         map: this.textureLoader.load(this.imageUtils.concert_lights),
@@ -143,10 +146,6 @@ class GeoUtils {
     // const dimensions = new CANNON.Vec3(specs.x, specs.y, specs.z);
     const multiboxBody = this.createPhysicsBody(this.multiBox, mass);
     this.geoBoxBodies.push(multiboxBody);
-    // Ensure arrays exist before pushing
-    // if (!this.geoMultiBoxBodies) this.geoMultiBoxBodies = [];
-    // if (!this.geoMultiBoxMeshes) this.geoMultiBoxMeshes = [];
-    // Store references for update loop
   }
 
   create3DBoxObject(specs = { x: 6, y: 8, z: 10 }, mass = 0) {
@@ -203,6 +202,16 @@ class GeoUtils {
 
   }
 
+  createShaderCoordinates(l, b, scale = 1.0) {
+    // Direct use with optional scaling
+    const resolution = new THREE.Vector2(
+      Math.floor(l * scale),
+      Math.floor(b * scale)
+    );
+  
+    return resolution;
+  }
+  
   // Wired Box Boundary 
   createWiredBoundaryBox(boundary, mass = 0, shader = this.shader.terrainManager.wiredCityTerrainShader) {
     const geo = new THREE.BoxGeometry(boundary, boundary, boundary);
@@ -224,101 +233,62 @@ class GeoUtils {
     // const dimensions = new CANNON.Vec3(specs.x, specs.y, specs.z);
     const body = this.createPhysicsBody(this.wiredBoundary, mass);
     this.wiredBoundaryBodies.push(body);
+    this.wiredBoundaryObj = {mesh: this.multifacedBoundaryBox, mass};
   }
 
   createMultifacedBoundaryBox(boundary, mass = 0, {
     top = this.shader.terrainManager.wiredCityTerrainSDFShader,
     bottom = this.shader.terrainManager.wiredCityTerrainSDFShader,
     left = this.shader.tunnelManager.tubeCityShader,
-    right = this.shader.skylineManager.ceasarsShader,
-    front = this.shader.terrestialManager.fluidMosaicShader,
-    back = this.shader.lucentManager.blendedLucentShader,
-  } = {}) {
-    // front = this.shader.lucentManager.blendedLucentShader,
+    right = this.shader.skylineManager.ceasarsShader, // skylineManager.glassSkylineShshaders.// front = this.shader.lucentManager.blendedLucentShader,
+    front = this.shader.mangroveManager.mangroveSwampShader, // mangroveSwampShader, //dragonCityManager.dragonCityTerrainShader,// tropicalRainForestShaderlakeManager.blueHavenShader, // bugManager.metalBugShader, // dragonCityManager.dragonCityTerrainShader, // ldragonCityManager.dragonCityTerrainShader, // lakeManager.giantRipplesShader,//parkCityManager.electricCloudShader, //fortressMansionShader, //landScapeManager.landScapeShader, //sandyPlainManager.dancingCreatureShader,//sandGalaxyMaterial,// //lucentManager.blendedLucentShader, // dragonCityManager.flyingDragonTerrainShader, //dragonCityTerrainShader, //terrestialManager.terrestialDragonShader,
+    back = this.shader.terrestialManager.terrestialDragonShader,//terrestialMosaicShader//terrestialDragonShader, //lucentManager.blendedLucentShader,
+  } = {}){
     // Ensure shaders exist before applying
     if (!this.shader) {
       console.error("Shader manager not initialized!");
       return;
     }
-
+  
     const geometry = new THREE.BoxGeometry(boundary, boundary, boundary);
-    const materials = [
-      // Left Face
-      new THREE.ShaderMaterial({
-        uniforms: left.uniforms, color: { value: new THREE.Color(this.randomHexColor()) },
-        vertexShader: left.vertexShader,
-        fragmentShader: left.fragmentShader,
-        side: THREE.BackSide,
-        wireframe: false,
-      }),
-
-      // Right Face
-      new THREE.ShaderMaterial({
-        uniforms: right.uniforms, color: { value: new THREE.Color(this.randomHexColor()) },
-        vertexShader: right.vertexShader,
-        fragmentShader: right.fragmentShader,
-        side: THREE.BackSide,
-        wireframe: false,
-      }),
-
-      // Right Face
-      // new THREE.ShaderMaterial({
-      //   uniforms: this.shader.skylineManager.glassSkylineShshaders.ader.uniforms, color: { value: new THREE.Color(this.randomHexColor()) },
-      //   vertexShader: this.shader.skylineManager.glassSkylineShader.vertexShader,
-      //   fragmentShader: this.shader.skylineManager.glassSkylineShader.fragmentShader,
-      //   side: THREE.BackSide,
-      //   wireframe: false,
-      // }),
-
-      // Top Face
-      new THREE.ShaderMaterial({
-        uniforms: top.uniforms, color: { value: new THREE.Color(this.randomHexColor()) },
-        vertexShader: top.vertexShader,
-        fragmentShader: top.fragmentShader,
-        side: THREE.BackSide,
-        wireframe: false,
-      }),
-
-      // Bottom
-      new THREE.ShaderMaterial({
-        uniforms: bottom.uniforms, color: { value: new THREE.Color(this.randomHexColor()) },
-        vertexShader: bottom.vertexShader,
-        fragmentShader: bottom.fragmentShader,
-        side: THREE.BackSide,
-        wireframe: false,
-      }),
-
-      // Front Face
-      new THREE.ShaderMaterial({
-        uniforms: front.uniforms, color: { value: new THREE.Color(this.randomHexColor()) },
-        vertexShader: front.vertexShader,
-        fragmentShader: front.fragmentShader,
-        side: THREE.BackSide,
-        wireframe: false,
-      }),
-
-      // Back Face
-      new THREE.ShaderMaterial({
-        uniforms: back.uniforms, color: { value: new THREE.Color(this.randomHexColor()) },
-        vertexShader: back.vertexShader,
-        fragmentShader: back.fragmentShader,
-        side: THREE.BackSide,
-        wireframe: false,
-      }),
-    ];
-
+  
+    const shaderFaces = [left, right, top, bottom, front, back];
+    const materials = shaderFaces.map(shader => new THREE.ShaderMaterial({
+      uniforms: shader.uniforms,
+      color: { value: new THREE.Color(this.randomHexColor()) },
+      vertexShader: shader.vertexShader,
+      fragmentShader: shader.fragmentShader,
+      side: THREE.BackSide,
+      wireframe: false,
+    }));
+  
     this.multifacedBoundaryBox = new THREE.Mesh(geometry, materials);
     this.scene.add(this.multifacedBoundaryBox);
     this.cubeBoundaryMeshes.push(this.multifacedBoundaryBox);
+ 
+    const pos = this.multifacedBoundaryBox.position;
+    const velocity = 0.0;
+    const sides = {
+      top: pos.clone().add(new THREE.Vector3(0, boundary / 2, 0)),
+      bottom: pos.clone().add(new THREE.Vector3(0, -boundary / 2, 0)),
+      left: pos.clone().add(new THREE.Vector3(-boundary / 2, 0, 0)),
+      right: pos.clone().add(new THREE.Vector3(boundary / 2, 0, 0)),
+      front: pos.clone().add(new THREE.Vector3(0, 0, boundary / 2)),
+      back: pos.clone().add(new THREE.Vector3(0, 0, -boundary / 2))
+    };
+  
+    // Store position and sides information
+    this.boundaryObj = { 
+      mesh: this.multifacedBoundaryBox, 
+      mass,
+      position: pos,
+      sides,
+      velocity
+    };
 
     const body = this.createPhysicsBody(this.multifacedBoundaryBox, mass);
     this.cubeBoundaryBodies.push(body);
   }
-
-  // Ensure update is called inside the animation loop
-  // update() {
-  //   this.updateMeshesPhysics();
-  // }
 
   activateMeshBody(mesh, body) {
     if (!mesh || !body) return;
@@ -391,88 +361,87 @@ class GeoUtils {
     this.updateMultiBoxPhysics();
     this.update3DObjBoxPhysics();
   }
-
+  
   dispose() {
-    // Dispose textures and materials
-    // if (Array.isArray(this.geoBoxMeshes)) {
-    //   this.geoBoxMeshes.forEach(mesh => {
-    //     if (mesh.material) {
-    //       mesh.material.forEach(material => {
-    //         if (material.dispose) {
-    //           material.dispose();
-    //         }
-    //       });
-    //     }
-    //     if (mesh.geometry) {
-    //       mesh.geometry.dispose();
-    //     }
-    //   });
-    // }
-
-    // if (Array.isArray(this.geoMultiBoxMeshes)) {
-    //   this.geoMultiBoxMeshes.forEach(mesh => {
-    //     if (mesh.material) {
-    //       mesh.material.forEach(material => {
-    //         if (material.dispose) {
-    //           material.dispose();
-    //         }
-    //       });
-    //     }
-    //     if (mesh.geometry) {
-    //       mesh.geometry.dispose();
-    //     }
-    //   });
-    // }
-
-    // if (Array.isArray(this.geo3DObjBoxMeshes)) {
-    //   this.geo3DObjBoxMeshes.forEach(mesh => {
-    //     if (mesh.material) {
-    //       mesh.material.forEach(material => {
-    //         if (material.dispose) {
-    //           material.dispose();
-    //         }
-    //       });
-    //     }
-    //     if (mesh.geometry) {
-    //       mesh.geometry.dispose();
-    //     }
-    //   });
-    // }
-
-    // Remove meshes from the scene
+    // Wired Boundary Meshes
+    if (Array.isArray(this.wiredBoundaryMeshes)) {
+      this.wiredBoundaryMeshes.forEach(mesh => {
+        if (mesh.material && mesh.material.dispose) {
+          mesh.material.dispose();
+        }
+        if (mesh.geometry) {
+          mesh.geometry.dispose();
+        }
+        this.scene.remove(mesh);
+      });
+    }
+  
+    // Multifaced Boundary Meshes
+    if (Array.isArray(this.cubeBoundaryMeshes)) {
+      this.cubeBoundaryMeshes.forEach(mesh => {
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach(mat => {
+            if (mat && mat.dispose) {
+              mat.dispose();
+            }
+          });
+        } else if (mesh.material && mesh.material.dispose) {
+          mesh.material.dispose();
+        }
+        if (mesh.geometry) {
+          mesh.geometry.dispose();
+        }
+        this.scene.remove(mesh);
+      });
+    }
+  
+    // Remove physics bodies
+    if (Array.isArray(this.wiredBoundaryBodies)) {
+      this.wiredBoundaryBodies.forEach(body => this.world.removeBody(body));
+    }
+  
+    if (Array.isArray(this.cubeBoundaryBodies)) {
+      this.cubeBoundaryBodies.forEach(body => this.world.removeBody(body));
+    }
+  
+    // Clear arrays
+    this.wiredBoundaryMeshes = [];
+    this.wiredBoundaryBodies = [];
+    this.cubeBoundaryMeshes = [];
+    this.cubeBoundaryBodies = [];
+  
+    // Existing cleanup (if still needed)
     if (Array.isArray(this.geoBoxMeshes)) {
       this.geoBoxMeshes.forEach(mesh => this.scene.remove(mesh));
     }
-
+  
     if (Array.isArray(this.geoMultiBoxMeshes)) {
       this.geoMultiBoxMeshes.forEach(mesh => this.scene.remove(mesh));
     }
-
+  
     if (Array.isArray(this.geo3DObjBoxMeshes)) {
       this.geo3DObjBoxMeshes.forEach(mesh => this.scene.remove(mesh));
     }
-
-    // Remove physics bodies from the world
+  
     if (Array.isArray(this.geoBoxBodies)) {
       this.geoBoxBodies.forEach(body => this.world.removeBody(body));
     }
-
+  
     if (Array.isArray(this.geoMultiBoxBodies)) {
       this.geoMultiBoxBodies.forEach(body => this.world.removeBody(body));
     }
-
+  
     if (Array.isArray(this.geo3DObjBoxBodies)) {
       this.geo3DObjBoxBodies.forEach(body => this.world.removeBody(body));
     }
-
-    // Clear arrays
+  
     this.geoBoxMeshes = [];
     this.geoBoxBodies = [];
     this.geoMultiBoxMeshes = [];
     this.geoMultiBoxBodies = [];
     this.geo3DObjBoxMeshes = [];
     this.geo3DObjBoxBodies = [];
-  }
+  }  
 
 }
 export default GeoUtils;

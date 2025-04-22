@@ -1,31 +1,23 @@
 import * as THREE from 'three';
 
 export class GraphShaderMaterials {
-  constructor(width = window.innerWidth,
-    height = window.innerHeight,
-    deltaTime = 1 / 60,
-    time = 0.1,
-    shapeFactor = 0.5,
-    cubeTexture = null,
-    explodeIntensity = 0.1,
-    thickness = 1,
-    flatShading = true,
-    u_frequency = 0.0,
+  constructor(params,
     mouse) {
-    this.width = width;
-    this.height = height;
-    this.time = time;
-    this.u_frequency = u_frequency;
-    this.thickness = thickness;
-    this.explodeIntensity = explodeIntensity;
-    this.flatShading = flatShading;
-    this.deltaTime = deltaTime;
-    this.shapeFactor = shapeFactor;
-    this.cubeTexture = cubeTexture;
-    this.hovered = 0.1;
-    this.mouse = mouse;
+    this.params = params;
+    this.width = this.params.width ?? window.innerWidth;
+    this.height = this.params.height ?? window.innerHeight;
+    this.clock = this.params.clock ?? new THREE.Clock();
+    this.sineTime = this.params.sineTime ?? 0.0;
+    this.time = this.params.time ?? this.clock.getElapsedTime();
+    this.deltaTime = this.params.deltaTime ?? 1 / 60;
+    this.shapeFactor = this.params.shapeFactor ?? 0.5;
+    this.cubeTexture = this.params.cubeTexture ?? null;
+    this.explodeIntensity = this.params.explodeIntensity ?? 0.1;
+    this.u_frequency = this.params.u_frequency ?? 0.0;
+    this.hovered = this.params.hovered ?? 0.1;
 
     // Mouse Utils
+    this.mouse = mouse;
     this.mousePosition = this.mouse;
     this.useStraigthLineShader();
     this.updateEvents();
@@ -40,6 +32,9 @@ export class GraphShaderMaterials {
         mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
         resolution: { value: new THREE.Vector2(this.width, this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
       },
 
       vertexShader: `

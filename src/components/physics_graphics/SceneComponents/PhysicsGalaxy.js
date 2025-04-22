@@ -62,9 +62,9 @@ const PhysicsGalaxy = ({ videos = [], width = window.innerWidth, height = window
     const texturedMaterials = textureManager.texturedMaterials;
 
     // 🎭 Shader Management
-    const shaderManager = new ShaderManager(width, height, params.deltaTime, params.time, params.shapeFactor, cubeTextureLoader, params.explodeIntensity, params.thickness, params.flatShading, params.u_frequency, mouse);
+    const shaderManager = new ShaderManager(params, mouse);
     const noiseMaterial = shaderManager.noiseMaterial;
-    const texturedShaderMaterial = shaderManager.ceasarsShaderMaterial;
+    const texturedShaderMaterial = shaderManager.dragonCityTerrainMaterial; ///ceasarsShaderMaterial;
 
     //  Set up background
     scene.background = cubeTextureLoader.load([stars, stars, stars, '', blue_concert, nebula]);

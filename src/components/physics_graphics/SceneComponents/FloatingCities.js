@@ -62,7 +62,7 @@ const FloatingCities = ({ width = window.innerWidth, height = window.innerHeight
     // const randomTexturedMaterial = textureManager.randomTexturedMaterial;
 
     // 🎭 Shader Management
-    const shaderManager = new ShaderManager(width, height, params.deltaTime, params.time, params.shapeFactor, cubeTextureLoader, params.explodeIntensity, params.thickness, params.flatShading, params.u_frequency, mouse);
+    const shaderManager = new ShaderManager(params, mouse);
     // const noiseMaterial = shaderManager.noiseMaterial;
     const texturedShaderMaterial = shaderManager.tunnelTerrainMaterial;
 

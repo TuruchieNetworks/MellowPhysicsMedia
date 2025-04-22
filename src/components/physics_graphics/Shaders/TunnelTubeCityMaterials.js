@@ -1,48 +1,45 @@
 import * as THREE from 'three';
 
 export class TunnelTubeCityMaterials {
-  constructor(width = window.innerWidth,
-    height = window.innerHeight,
-    deltaTime = 1 / 60,
-    time = 0.1,
-    shapeFactor = 0.5,
-    cubeTexture = null,
-    explodeIntensity = 0.1,
-    thickness = 1,
-    flatShading = true,
-    u_frequency = 0.0,
-    mousePosition) {
-    this.width = width;
-    this.height = height;
-    this.time = time;
-    this.u_frequency = u_frequency;
-    this.thickness = thickness;
-    this.explodeIntensity = explodeIntensity;
-    this.flatShading = flatShading;
-    this.deltaTime = deltaTime;
-    this.shapeFactor = shapeFactor;
-    this.cubeTexture = cubeTexture;
-    this.hovered = 0.1;
+  constructor(params,
+    mouse) {
+    this.params = params;
+    this.width = this.params.width ?? window.innerWidth;
+    this.height = this.params.height ?? window.innerHeight;
+    this.clock = this.params.clock ?? new THREE.Clock();
+    this.sineTime = this.params.sineTime ?? 0.0;
+    this.time = this.params.time ?? this.clock.getElapsedTime();
+    this.deltaTime = this.params.deltaTime ?? 1 / 60;
+    this.shapeFactor = this.params.shapeFactor ?? 0.5;
+    this.cubeTexture = this.params.cubeTexture ?? null;
+    this.explodeIntensity = this.params.explodeIntensity ?? 0.1;
+    this.u_frequency = this.params.u_frequency ?? 0.0;
+    this.hovered = this.params.hovered ?? 0.1;
 
     // Mouse Utils
-    this.mousePosition = mousePosition;
+    this.mouse = mouse;
+    this.mousePosition = this.mouse;
 
     this.useTubeCityShader();
     this.useTunnelCityShader();
     this.useFlyingTubeCityShader();
-    // this.updateEvents();
+    this.updateEvents();
+    this.getShaders();
   }
 
   useTubeCityShader() {
     this.tubeCityShader = {
       uniforms: {
-        time: { value: this.time },
-        resolution: { value: new THREE.Vector2(this.width, this.height) },
-        time: { value: this.time },
         hovered: { value: this.hovered },
+        sineTime: { value: this.sineTime },
         shapeFactor: { value: this.shapeFactor },
-        mousePosition: { value: this.mousePosition},
+        time: { value: this.clock.getElapsedTime() },
+        mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
+        resolution: { value: new THREE.Vector2(this.width, this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
       },
 
       vertexShader: `
@@ -607,13 +604,16 @@ export class TunnelTubeCityMaterials {
   useTunnelCityShader() {
     this.tunnelCityShader = {
       uniforms: {
-        time: { value: this.time },
-        resolution: { value: new THREE.Vector2(this.width, this.height) },
-        time: { value: this.time },
         hovered: { value: this.hovered },
+        sineTime: { value: this.sineTime },
         shapeFactor: { value: this.shapeFactor },
-        mousePosition: { value: this.mousePosition},
+        time: { value: this.clock.getElapsedTime() },
+        mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
+        resolution: { value: new THREE.Vector2(this.width, this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
       },
 
       vertexShader: `
@@ -832,6 +832,19 @@ export class TunnelTubeCityMaterials {
         // Define ground SDF function
         float sdGround(vec3 p) {
             return p.y + noise(p.xz * 0.1) * 0.5; // Example ground height variation
+        }
+
+        float dragonSpider(vec3 p) {
+          vec2 drg = p.xz;
+          float r = length(drg) * 2.616;
+          float a = fract(atan(drg.y * p.z, fract(drg.x) - 0.2 * sin(drg.x * drg.y * p.z))) - r;
+        
+          float f = abs(cos(a * 2.5)) * 0.5 + 0.3;
+          f = abs(cos(a * 12.0) * sin(a * 3.0)) * 0.8 + 0.1;
+          float softness = smoothstep(-0.5, 1.0, cos(a * 10.0)) * 0.2 + 0.5;
+        
+          float spider = 1.0 - smoothstep(f, sin(f + r) - 0.25, r);
+          return spider - 0.5;
         }
 
         // The main map function that will define the scene
@@ -1102,7 +1115,7 @@ export class TunnelTubeCityMaterials {
           vec3 lightDir;
           
           // Apply wiggle effect to the camera
-          wiggleCamera(ro, rd, uv, mouse, time);
+          // wiggleCamera(ro, rd, uv, mouse, time);
         
           // 🔥🔥 Ray Marching Algorithm
           float t = 0.0; // Total Distance Travelled By Ray
@@ -1112,6 +1125,7 @@ export class TunnelTubeCityMaterials {
           for (int i = 0; i < 80; i++) {
             vec3 p = ro + rd * t; // Position along the ray
             float d = map(p); // Current distance to the scene
+            d += dragonSpider(p);
             lightDir = normalize(lightPos - p);
                 
             // Compute Shadows and reflections
@@ -1156,6 +1170,8 @@ export class TunnelTubeCityMaterials {
               rayPower + S(noise(uv.xy * 2.0 + time * 0.7)) * shadowIntensity
           );
 
+          color *+ dragonSpider(color);
+
           color = applyFog(color, t, fog, fogDensity);
           gl_FragColor = vec4(color, 1);
         }
@@ -1169,13 +1185,13 @@ export class TunnelTubeCityMaterials {
   useFlyingTubeCityShader() {
     this.flyingTubeCityShader = {
       uniforms: {
-        time: { value: this.time },
-        resolution: { value: new THREE.Vector2(this.width, this.height) },
-        time: { value: this.time },
         hovered: { value: this.hovered },
+        sineTime: { value: this.sineTime },
         shapeFactor: { value: this.shapeFactor },
-        mousePosition: { value: this.mousePosition},
+        time: { value: this.clock.getElapsedTime() },
+        mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
+        resolution: { value: new THREE.Vector2(this.width, this.height) },
       },
 
       vertexShader: `
@@ -1736,20 +1752,24 @@ export class TunnelTubeCityMaterials {
     this.flyingTubeCityMaterial = new THREE.ShaderMaterial(this.flyingTubeCityShader);
   }
 
+  getShaders() {
+    this.shaders = [
+      this.tubeCityShader, 
+      this.tunnelCityShader,
+      this.flyingTubeCityShader,
+    ];
+  }
+
   updateResolution(shader, width, height) {
     if (shader && shader.uniforms && shader.uniforms.resolution) {
       shader.uniforms.resolution.value.set(width, height);
     }
   }
-  
-  handleResize(renderer, width = window.innerWidth, height = window.innerHeight) {
-    if (!renderer) return;
-    // Each shader handles its own resolution updates
-    if (this.tubeCityShader) this.updateResolution(this.tubeCityShader, width, height);
-    if (this.tunnelCityShader) this.updateResolution(this.tunnelCityShader, width, height);
-    if (this.flyingTubeCityShader) this.updateResolution(this.flyingTubeCityShader, width, height);
-  }
 
+  handleResize(width = window.innerWidth, height = window.innerHeight) {
+    // Each shader handles its own resolution updates
+    this.shaders.forEach(shader => {if (shader) this.updateResolution(shader, width, height)});
+  }
 
   // Handle hover effect on shaders
   handleHoverEffect(shader, mousePosition) {
@@ -1768,16 +1788,12 @@ export class TunnelTubeCityMaterials {
     if (event && this.mousePosition) {
       this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
       this.mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
-      // this.mouseUtils.updateMouse(event);
     }
   
-    // Copy Updated Mouse Position
-    // const mousePosition = this.mouseUtils.getMousePosition();
-  
     // Update the shader with the current mouse position and toggle the effect
-    if (this.tubeCityShader) this.handleHoverEffect(this.tubeCityShader, this.mousePosition);
-    if (this.tunnelCityShader) this.handleHoverEffect(this.tunnelCityShader, this.mousePosition);
-    if (this.flyingTubeCityShader) this.handleHoverEffect(this.flyingTubeCityShader, this.mousePosition);
+    this.shaders.forEach(shader => {
+      if (shader) this.handleHoverEffect(shader, this.mousePosition);
+    });
   }
 
   updateEvents() {
@@ -1788,27 +1804,19 @@ export class TunnelTubeCityMaterials {
 
   // Update method for shader uniforms and dynamic behavior
   update() {
-    // this.addMouseListener()
+    // const elapsed = this.clock.getElapsedTime(); // Straigth InfiniteTime
+    // this.updateEvents()
     this.time += this.deltaTime; // Update time for animation
 
-    // Update other uniforms if necessary
-    if (this.tubeCityShader) {
-      this.tubeCityShader.uniforms.shapeFactor.value = this.time * Math.sin(0.001 + this.time);
-      this.tubeCityShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-      this.tubeCityShader.uniforms.explodeIntensity.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
-
-    if (this.tunnelCityShader) {
-      this.tunnelCityShader.uniforms.shapeFactor.value = this.time * Math.sin(0.001 + this.time);
-      this.tunnelCityShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-      this.tunnelCityShader.uniforms.explodeIntensity.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
-
-    if (this.flyingTubeCityShader) {
-      this.flyingTubeCityShader.uniforms.shapeFactor.value = this.time * Math.sin(0.001 + this.time);
-      this.flyingTubeCityShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-      this.flyingTubeCityShader.uniforms.explodeIntensity.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
+    //Update other uniforms if necessary// 
+    this.shaders.forEach(shader => {
+      if (shader) {
+        // shader.uniforms.infiniteTime.value =  elapsed;
+        shader.uniforms.shapeFactor.value = this.time * Math.sin(0.001 + this.time);
+        shader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
+        shader.uniforms.explodeIntensity.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
+      }
+    });
   }
 }
 export default TunnelTubeCityMaterials;

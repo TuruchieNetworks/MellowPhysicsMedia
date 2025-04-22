@@ -2400,3 +2400,158 @@ useCityTerrainShader() {
             gl_FragColor = vec4(color, opacity); // Default behavior
           }
         }
+
+
+           // Function to handle wall collision
+        checkWallCollision(mobileMesh, staticMesh) {
+            const pos = mobileMesh.mesh.position;
+            const v = mobileMesh.velocity;
+
+            const cubeSize = new THREE.Vector3();
+                  new THREE.Box3().setFromObject(boundaryMeshObj.mesh).getSize(cubeSize);
+                  const halfCubeX = cubeSize.x / 2;
+                  const halfCubeY = cubeSize.y / 2;
+                  const halfCubeZ = cubeSize.z / 2;
+            // Check for collisions with the walls
+            if (pos.x - radius < -cubeSize / 2 || pos.x + radius > cubeSize / 2) {
+                v.x *= -1;  // Reverse velocity in X
+            }
+            if (pos.y - radius < -cubeSize / 2 || pos.y + radius > cubeSize / 2) {
+                v.y *= -1;  // Reverse velocity in Y
+            }
+            if (pos.z - radius < -cubeSize / 2 || pos.z + radius > cubeSize / 2) {
+                v.z *= -1;  // Reverse velocity in Z
+            }
+        }
+
+        // Function to apply gravity, update positions, and apply damping
+        function applyGravityAndUpdatePositions(deltaTime) {
+            for (const sphere of spheres) {
+                // Apply gravity
+                sphere.velocity.add(gravity);
+
+                // Dampen the velocity
+                sphere.velocity.multiplyScalar(dampingFactor);
+
+                // Update position based on velocity
+                sphere.mesh.position.add(sphere.velocity.clone().multiplyScalar(deltaTime));
+                
+                // Check for wall collisions
+                checkWallCollision(sphere);
+            }
+        }
+
+        // Update function with substeps and momentum
+        function updatePhysics(deltaTime, substeps) {
+            const timeStep = deltaTime / substeps;
+
+            for (let step = 0; step < substeps; step++) {
+                // Check collisions and apply repulsion for all pairs of spheres
+                for (let i = 0; i < spheres.length; i++) {
+                    for (let j = i + 1; j < spheres.length; j++) {
+                        handleCollision(spheres[i], spheres[j]);
+                    }
+                }
+
+                applyGravityAndUpdatePositions(timeStep);
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+    // Handle Sphere Collision
+    checkWallCollision(meshObj, boundaryMeshObj) {
+        if (meshObj && boundaryMeshObj) {
+            const mobilePosition = meshObj.mesh.position;
+            const staticPosition = boundaryMeshObj.mesh.position;
+            
+            // Get the boundary size (assuming it's a cube)
+            const boundarySize = boundaryMeshObj.mesh.geometry.parameters;
+    
+            // Calculate distance to the center of the boundary
+            const distVec = new THREE.Vector3().subVectors(mobilePosition, staticPosition);
+            
+            // Get half the size of the boundary to check against
+            const halfSize = new THREE.Vector3(
+                boundarySize.width / 2,
+                boundarySize.height / 2,
+                boundarySize.depth / 2
+            );
+    
+            // Check if we're inside the boundary (simply check if all distances are within the boundary size)
+            const isInside = Math.abs(distVec.x) < halfSize.x &&
+                             Math.abs(distVec.y) < halfSize.y &&
+                             Math.abs(distVec.z) < halfSize.z;
+    
+            // If inside, check if we're touching the boundary (using overlap)
+            if (isInside) {
+                const overlapX = halfSize.x - Math.abs(distVec.x);
+                const overlapY = halfSize.y - Math.abs(distVec.y);
+                const overlapZ = halfSize.z - Math.abs(distVec.z);
+    
+                // Check if we are touching any border (overlap <= 0 means touching the boundary)
+                if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) {
+                    // Apply a simple pushback if we're touching the boundary
+                    const pushStrength = 0.05; // Strength of the push
+                    if (Math.abs(distVec.x) >= Math.abs(distVec.y) && Math.abs(distVec.x) >= Math.abs(distVec.z)) {
+                        mobilePosition.x += (distVec.x > 0 ? pushStrength : -pushStrength); // Push back along X axis
+                    } else if (Math.abs(distVec.y) >= Math.abs(distVec.x) && Math.abs(distVec.y) >= Math.abs(distVec.z)) {
+                        mobilePosition.y += (distVec.y > 0 ? pushStrength : -pushStrength); // Push back along Y axis
+                    } else {
+                        mobilePosition.z += (distVec.z > 0 ? pushStrength : -pushStrength); // Push back along Z axis
+                    }
+    
+                    // Optionally, trigger effects if needed
+                    if (meshObj.material?.isShaderMaterial) {
+                        this.triggerShaderUniforms(meshObj);
+                    }
+                    if (boundaryMeshObj.material?.isShaderMaterial) {
+                        this.triggerShaderUniforms(boundaryMeshObj);
+                    }
+                }
+            }
+        }
+    }
+
+
+
+
+float ripple(vec3 p, vec3 origin, float time) {
+    float dist = distance(p, origin);
+    return sin(dist * frequency - time * u_velocity) * amplitude / (1.0 + dist);
+}
+
+float rippleEffect = ripple(worldPos, u_rippleOrigin, u_rippleTime);
+finalColor += vec3(rippleEffect); // or mix into final output however you want
+
+// Assumes uniforms:
+// uniform vec3 u_rippleOrigin;
+// uniform float u_rippleTime;
+// uniform float u_velocity;
+// uniform float u_amplitude;
+// uniform float u_frequency;
+
+float ripple(vec3 p, vec3 origin, float time) {
+    float dist = distance(p, origin);
+    float wave = sin(dist * u_frequency - time * u_velocity);
+    return wave * u_amplitude / (1.0 + dist);
+}
+uniform int u_rippleCount;
+uniform vec3 u_rippleOrigins[4];
+uniform float u_rippleTimes[4];
+
+float totalRipple(vec3 p) {
+    float total = 0.0;
+    for (int i = 0; i < 4; i++) {
+        if (i >= u_rippleCount) break;
+        total += ripple(p, u_rippleOrigins[i], u_rippleTimes[i]);
+    }
+    return total;
+}

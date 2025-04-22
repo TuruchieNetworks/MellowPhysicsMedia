@@ -1,53 +1,51 @@
 import * as THREE from 'three';
 
 export class SkyLineMaterials {
-  constructor(width = window.innerWidth,
-    height = window.innerHeight,
-    deltaTime = 1 / 60,
-    time = 0.1,
-    shapeFactor = 0.5,
-    cubeTexture = null,
-    explodeIntensity = 0.1,
-    thickness = 1,
-    flatShading = true,
-    u_frequency = 0.0,
-    mousePosition) {
-    this.width = width;
-    this.height = height;
-    this.time = time;
-    this.u_frequency = u_frequency;
-    this.thickness = thickness;
-    this.explodeIntensity = explodeIntensity;
-    this.flatShading = flatShading;
-    this.deltaTime = deltaTime;
-    this.shapeFactor = shapeFactor;
-    this.cubeTexture = cubeTexture;
-    this.hovered = 0.1;
+  constructor(params,
+    mouse) {
+    this.params = params;
+    this.width = this.params.width ?? window.innerWidth;
+    this.height = this.params.height ?? window.innerHeight;
+    this.clock = this.params.clock ?? new THREE.Clock();
+    this.sineTime = this.params.sineTime ?? 0.0;
+    this.time = this.params.time ?? this.clock.getElapsedTime();
+    this.deltaTime = this.params.deltaTime ?? 1 / 60;
+    this.shapeFactor = this.params.shapeFactor ?? 0.5;
+    this.cubeTexture = this.params.cubeTexture ?? null;
+    this.explodeIntensity = this.params.explodeIntensity ?? 0.1;
+    this.u_frequency = this.params.u_frequency ?? 0.0;
+    this.hovered = this.params.hovered ?? 0.1;
 
     // Mouse Utils
-    this.mousePosition = mousePosition;
+    this.mouse = mouse;
+    this.mousePosition = this.mouse;
 
     this.useSkyCityShader();
     this.useCeasarsShader();
     this.useGlassSkylineShader();
     this.useSkylineTerrainShader();
-    // this.updateEvents();
+    this.updateEvents();
+    this.getShaders();
   }
 
 
   useSkyCityShader() {
     this.skyCityShader = {
       uniforms: {
-        resolution: { value: new THREE.Vector2(this.width, this.height) },
-        time: { value: this.time },
+        sineTime: { value: this.sineTime },
         hovered: { value: this.hovered },
         shapeFactor: { value: this.shapeFactor },
+        time: { value: this.clock.getElapsedTime() },
         mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
+        resolution: { value: new THREE.Vector2(this.width, this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
       },
 
       vertexShader: `
-        uniform float time;
+        uniform float sineTime;
         uniform float hovered;
         uniform vec2 mousePosition;
         uniform float explodeIntensity;
@@ -63,7 +61,7 @@ export class SkyLineMaterials {
       
           // Calculate distance to mouse position
           float dist = distance(mousePosition, vec2(pos.x, pos.y));
-          float effect = hovered * smoothstep(0.2, 0.0, dist) * noise(pos.xy * 10.0 + time);
+          float effect = hovered * smoothstep(0.2, 0.0, dist) * noise(pos.xy * 10.0 + sineTime);
       
           // Apply explode effect
           pos += normal * effect * explodeIntensity;
@@ -73,7 +71,7 @@ export class SkyLineMaterials {
       `,
 
       fragmentShader: `
-        uniform float time;
+        uniform float sineTime;
         uniform float hovered;
         uniform float shapeFactor;
         uniform vec2 mousePosition;
@@ -180,8 +178,8 @@ export class SkyLineMaterials {
         // The main map function that will define the scene
         float map(vec3 p) {
           // Define building parameters
-          vec3 spherePos = vec3(-5.0 * sin(time * 5.0), 2.0, 0.0);
-          // spherePos += rotate3D(spherePos, vec3(1.0, 0.5, 0.0), time * 0.3);
+          vec3 spherePos = vec3(-5.0 * sin(sineTime * 5.0), 2.0, 0.0);
+          // spherePos += rotate3D(spherePos, vec3(1.0, 0.5, 0.0), sineTime * 0.3);
           float sphere = sdSphere(p - spherePos, 0.9);
 
           // Ground SDF
@@ -193,10 +191,10 @@ export class SkyLineMaterials {
 
 
           // Weather Factor the ommitted swizzled vec param is the axis of rotation
-          q.z += time * 0.4; // Forward Camera Movement  
-          q.y -= time * 0.4; // Upward Movement
+          q.z += sineTime * 0.4; // Forward Camera Movement  
+          q.y -= sineTime * 0.4; // Upward Movement
 
-          // q.xz *= rot2D(time * 0.4);
+          // q.xz *= rot2D(sineTime * 0.4);
           q = fract(p) - 0.5; // Space Repetition 0.5 is the center of repetition
           //q.xz = fract(p.xz) - 0.5; // Space Repetition 0.5 is the center of repetition
 
@@ -251,16 +249,16 @@ export class SkyLineMaterials {
           return (diff + spec) * color * shadow;
         }
 
-        void wiggleCamera(inout vec3 ro, inout vec3 rd, vec2 uv, vec2 mouse, float time) {
+        void wiggleCamera(inout vec3 ro, inout vec3 rd, vec2 uv, vec2 mouse, float sineTime) {
           // Adding wiggle effect to the camera
-          ro.x += sin(time * 2.0) * 0.5;
-          ro.y += cos(time * 1.5) * 0.2;
+          ro.x += sin(sineTime * 2.0) * 0.5;
+          ro.y += cos(sineTime * 1.5) * 0.2;
           
           // Slight noise-based distortion on ray direction
           rd += normalize(vec3(
-              sin(uv.x * time * 0.5) * 0.1,  
-              cos(uv.y * time * 0.3) * 0.1,  
-              sin(uv.x * time * 0.7) * 0.1  
+              sin(uv.x * sineTime * 0.5) * 0.1,  
+              cos(uv.y * sineTime * 0.3) * 0.1,  
+              sin(uv.x * sineTime * 0.7) * 0.1  
           ));
 
           rd = normalize(rd); // Normalize direction after adding noise
@@ -352,12 +350,12 @@ export class SkyLineMaterials {
 
           // Noise and Soft Min calculations
           float n = noise(uv * sin(shapeFactor + uv.x) + sin(uv * sin(shapeFactor + uv.x)));
-          float smn = smin(uv.x + time, uv.y + shapeFactor, shapeFactor + sin(uv.x * shapeFactor));
+          float smn = smin(uv.x + sineTime, uv.y + shapeFactor, shapeFactor + sin(uv.x * shapeFactor));
           float shadowIntensity = 0.1;
         
           // UV Transformations
-          uv *= 2.0 + time;
-          uv *= 1.2 + noise(uv * time) * 0.05;  // Slight noise-based distortion
+          uv *= 2.0 + sineTime;
+          uv *= 1.2 + noise(uv * sineTime) * 0.05;  // Slight noise-based distortion
 
           // Initialize Ray marching variables
           float fov = 1.0; 
@@ -373,14 +371,14 @@ export class SkyLineMaterials {
           vec3 viewDir = normalize(vec3(0.0, 0.0, 1.0)); // Camera view direction
           vec3 lightDir;
       
-          // ro.x += sin(time * 2.0) * 0.5; // Wiggle the x-axis of the camera path
-          // ro.y += cos(time * 1.5) * 0.2; // Wiggle the y-axis of the camera path
+          // ro.x += sin(sineTime * 2.0) * 0.5; // Wiggle the x-axis of the camera path
+          // ro.y += cos(sineTime * 1.5) * 0.2; // Wiggle the y-axis of the camera path
           
           // // Slight noise-based distortion on ray direction (wiggling)
           // rd += normalize(vec3(
-          //   sin(uv.x * time * 0.5) * 0.1,  // X-axis wiggle
-          //   cos(uv.y * time * 0.3) * 0.1,  // Y-axis wiggle
-          //   sin(uv.x * time * 0.7) * 0.1   // Z-axis wiggle
+          //   sin(uv.x * sineTime * 0.5) * 0.1,  // X-axis wiggle
+          //   cos(uv.y * sineTime * 0.3) * 0.1,  // Y-axis wiggle
+          //   sin(uv.x * sineTime * 0.7) * 0.1   // Z-axis wiggle
           // ));
         
           // // Normalize the direction after adding noise
@@ -394,7 +392,7 @@ export class SkyLineMaterials {
           // rd.yz *= rot2D(-mouse.y);
 
           // Apply wiggle effect to the camera
-          wiggleCamera(ro, rd, uv, mouse, time);
+          wiggleCamera(ro, rd, uv, mouse, sineTime);
         
           // 🔥🔥 Ray Marching Algorithm
           float t = 0.0; // Total Distance Travelled By Ray
@@ -428,16 +426,16 @@ export class SkyLineMaterials {
 
           // Apply depth factor
           float rayPower = t * intensityFactor * depthFactor;
-          float rgR = shadowIntensity + rayPower + S(noise(uv.xy * 4.0 + time * 0.3)) * shadowIntensity; 
-          float rgG = shadowIntensity + rayPower + S(noise(uv.yx * 3.0 + time * 0.5)) * shadowIntensity;
-          float rgB = shadowIntensity + rayPower + S(noise(uv.xy * 2.0 + time * 0.7)) * shadowIntensity;
+          float rgR = shadowIntensity + rayPower + S(noise(uv.xy * 4.0 + sineTime * 0.3)) * shadowIntensity; 
+          float rgG = shadowIntensity + rayPower + S(noise(uv.yx * 3.0 + sineTime * 0.5)) * shadowIntensity;
+          float rgB = shadowIntensity + rayPower + S(noise(uv.xy * 2.0 + sineTime * 0.7)) * shadowIntensity;
       
           // Final Coloring with Shadows
           color = vec3(rgR, rgG, rgB);
           // color = vec3(
-          //     rayPower + S(noise(uv.xy * 4.0 + time * 0.3)) * shadowIntensity,
-          //     rayPower + S(noise(uv.yx * 3.0 + time * 0.5)) * shadowIntensity,
-          //     rayPower + S(noise(uv.xy * 2.0 + time * 0.7)) * shadowIntensity
+          //     rayPower + S(noise(uv.xy * 4.0 + sineTime * 0.3)) * shadowIntensity,
+          //     rayPower + S(noise(uv.yx * 3.0 + sineTime * 0.5)) * shadowIntensity,
+          //     rayPower + S(noise(uv.xy * 2.0 + sineTime * 0.7)) * shadowIntensity
           // );
         
           gl_FragColor = vec4(color, 1);
@@ -452,16 +450,20 @@ export class SkyLineMaterials {
   useCeasarsShader() {
     this.ceasarsShader = {
       uniforms: {
-        resolution: { value: new THREE.Vector2(this.width, this.height) },
-        time: { value: this.time },
+        sineTime: { value: this.sineTime },
         hovered: { value: this.hovered },
         shapeFactor: { value: this.shapeFactor },
+        time: { value: this.clock.getElapsedTime() },
         mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
+        resolution: { value: new THREE.Vector2(this.width, this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
       },
 
       vertexShader: `
-        uniform float time;
+        uniform float sineTime;
         uniform float hovered;
         uniform vec2 mousePosition;
         uniform float explodeIntensity;
@@ -477,7 +479,7 @@ export class SkyLineMaterials {
       
           // Calculate distance to mouse position
           float dist = distance(mousePosition, vec2(pos.x, pos.y));
-          float effect = hovered * smoothstep(0.2, 0.0, dist) * noise(pos.xy * 10.0 + time);
+          float effect = hovered * smoothstep(0.2, 0.0, dist) * noise(pos.xy * 10.0 + sineTime);
       
           // Apply explode effect
           pos += normal * effect * explodeIntensity;
@@ -487,7 +489,7 @@ export class SkyLineMaterials {
       `,
 
       fragmentShader: `
-        uniform float time;
+        uniform float sineTime;
         uniform float hovered;
         uniform float shapeFactor;
         uniform vec2 mousePosition;
@@ -594,8 +596,8 @@ export class SkyLineMaterials {
         // The main map function that will define the scene
         float map(vec3 p) {
           // Define building parameters
-          vec3 spherePos = vec3(-5.0 * sin(time * 5.0), 2.0, 0.0);
-          // spherePos += rotate3D(spherePos, vec3(1.0, 0.5, 0.0), time * 0.3);
+          vec3 spherePos = vec3(-5.0 * sin(sineTime * 5.0), 2.0, 0.0);
+          // spherePos += rotate3D(spherePos, vec3(1.0, 0.5, 0.0), sineTime * 0.3);
           float sphere = sdSphere(p - spherePos, 0.9);
 
           // Ground SDF
@@ -607,10 +609,10 @@ export class SkyLineMaterials {
 
 
           // Weather Factor the ommitted swizzled vec param is the axis of rotation
-          q.z += time * 0.4; // Forward Camera Movement  
-          q.y -= time * 0.4; // Upward Movement
+          q.z += sineTime * 0.4; // Forward Camera Movement  
+          q.y -= sineTime * 0.4; // Upward Movement
 
-          // q.xz *= rot2D(time * 0.4);
+          // q.xz *= rot2D(sineTime * 0.4);
           q = fract(p) - 0.5; // Space Repetition 0.5 is the center of repetition
           //q.xz = fract(p.xz) - 0.5; // Space Repetition 0.5 is the center of repetition
 
@@ -665,16 +667,16 @@ export class SkyLineMaterials {
           return (diff + spec) * color * shadow;
         }
 
-        void wiggleCamera(inout vec3 ro, inout vec3 rd, vec2 uv, vec2 mouse, float time) {
+        void wiggleCamera(inout vec3 ro, inout vec3 rd, vec2 uv, vec2 mouse, float sineTime) {
           // Adding wiggle effect to the camera
-          ro.x += sin(time * 2.0) * 0.5;
-          ro.y += cos(time * 1.5) * 0.2;
+          ro.x += sin(sineTime * 2.0) * 0.5;
+          ro.y += cos(sineTime * 1.5) * 0.2;
           
           // Slight noise-based distortion on ray direction
           rd += normalize(vec3(
-              sin(uv.x * time * 0.5) * 0.1,  
-              cos(uv.y * time * 0.3) * 0.1,  
-              sin(uv.x * time * 0.7) * 0.1  
+              sin(uv.x * sineTime * 0.5) * 0.1,  
+              cos(uv.y * sineTime * 0.3) * 0.1,  
+              sin(uv.x * sineTime * 0.7) * 0.1  
           ));
 
           rd = normalize(rd); // Normalize direction after adding noise
@@ -766,21 +768,21 @@ export class SkyLineMaterials {
       
         // Ripple Utilities
         vec3 applyFloatRipple(float x, float y, float z, float d) {
-          float ripple = sin(10.0 * d - time * 5.0);
+          float ripple = sin(10.0 * d - sineTime * 5.0);
           float intensity = smoothstep(0.3, 0.0, d);
 
           vec3 wave = vec3(x, y, z) + ripple * intensity;
           return wave;
         }
 
-        vec3 applyRipple(vec3 p, float d, float time) {
-            float ripple = sin(10.0 * d - time * 5.0);
+        vec3 applyRipple(vec3 p, float d, float sineTime) {
+            float ripple = sin(10.0 * d - sineTime * 5.0);
             float intensity = smoothstep(0.3, 0.0, d);
             return p + normalize(vec3(p.xy, 0.0)) * ripple * intensity;
         }
         
-        vec3 applyTurboRipple(vec3 position, float dist, float time, float frequency, float speed, float fade) {
-          float ripple = sin(frequency * dist - time * speed);
+        vec3 applyTurboRipple(vec3 position, float dist, float sineTime, float frequency, float speed, float fade) {
+          float ripple = sin(frequency * dist - sineTime * speed);
           float intensity = smoothstep(fade, 0.0, dist);
           return position + normalize(vec3(position.xy, 0.0)) * ripple * intensity;
         }
@@ -795,11 +797,11 @@ export class SkyLineMaterials {
 
           // Noise and Soft Min calculations
           float n = noise(uv * sin(shapeFactor + uv.x) + sin(uv * sin(shapeFactor + uv.x)));
-          float smn = smin(uv.x + time, uv.y + shapeFactor, shapeFactor + sin(uv.x * shapeFactor));
+          float smn = smin(uv.x + sineTime, uv.y + shapeFactor, shapeFactor + sin(uv.x * shapeFactor));
         
           // UV Transformations
-          uv *= 2.0 + time;
-          uv *= 1.2 + noise(uv * time) * 0.05;  // Slight noise-based distortion
+          uv *= 2.0 + sineTime;
+          uv *= 1.2 + noise(uv * sineTime) * 0.05;  // Slight noise-based distortion
 
           // Initialize Ray marching variables
           float fov = 1.0; 
@@ -819,7 +821,7 @@ export class SkyLineMaterials {
 
 
           // Apply wiggle effect to the camera
-          wiggleCamera(ro, rd, uv, mouse, time);
+          wiggleCamera(ro, rd, uv, mouse, sineTime);
         
           // 🔥🔥 Ray Marching Algorithm
           float t = 0.0; // Total Distance Travelled By Ray
@@ -827,12 +829,15 @@ export class SkyLineMaterials {
           vec3 normal; // Declare normal
 
           for (int i = 0; i < 80; i++) {
+            // // Apply wiggle effect to the camera
+            // wiggleCamera(ro, rd, uv, mouse, sineTime);
+
+            // // Apply ripple effect
+            // // rd += applyRipple(ro, d, sineTime);
+
             vec3 p = ro + rd * t; // Position along the ray
             float d = map(p); // Current distance to the scene
             lightDir = normalize(lightPos - p);
-
-            // Apply ripple effect
-            // rd += applyRipple(ro, dist, time);
                 
             // Compute Shadows and reflections
             if (d < 0.001) {  
@@ -858,9 +863,9 @@ export class SkyLineMaterials {
           float rayPower = t * intensityFactor * depthFactor;
 
           // Color Palette
-          float rgR = rayPower + S(noise(uv.xy * 4.0 + time * 0.3)) * shadowIntensity; 
-          float rgG = rayPower + S(noise(uv.yx * 3.0 + time * 0.5)) * shadowIntensity;
-          float rgB = rayPower + S(noise(uv.xy * 2.0 + time * 0.7)) * shadowIntensity;
+          float rgR = rayPower + S(noise(uv.xy * 4.0 + sineTime * 0.3)) * shadowIntensity; 
+          float rgG = rayPower + S(noise(uv.yx * 3.0 + sineTime * 0.5)) * shadowIntensity;
+          float rgB = rayPower + S(noise(uv.xy * 2.0 + sineTime * 0.7)) * shadowIntensity;
 
           // Define Fog parameters
           vec3 fog = vec3(0.2, 0.3, 0.4); // Adjust for desired atmosphere
@@ -869,7 +874,7 @@ export class SkyLineMaterials {
           // Apply Colors With Fogs and Shadows
           color += vec3(rgR , rgG, rgB );
           color += vec3(rgR + smn, rgG, rgB * (fract(smn) - smn)) + applyFog(color, rayPower, fog, fogDensity);
-          // color += applyRipple(color, rayPower, time);
+          // color += applyRipple(color, rayPower, sineTime);
           gl_FragColor = vec4(color, 1);
         }
       `
@@ -881,16 +886,20 @@ export class SkyLineMaterials {
   useGlassSkylineShader() {
     this.glassSkylineShader = {
       uniforms: {
-        resolution: { value: new THREE.Vector2(this.width, this.height) },
-        time: { value: this.time },
+        sineTime: { value: this.sineTime },
         hovered: { value: this.hovered },
         shapeFactor: { value: this.shapeFactor },
-        explodeIntensity: { value: this.explodeIntensity },
         mousePosition: { value: this.mousePosition },
+        time: { value: this.clock.getElapsedTime() },
+        explodeIntensity: { value: this.explodeIntensity },
+        resolution: { value: new THREE.Vector2(this.width, this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
       },
 
       vertexShader: `
-        uniform float time;
+        uniform float sineTime;
         uniform float hovered;
         uniform vec2 mousePosition;
         uniform float explodeIntensity;
@@ -906,7 +915,7 @@ export class SkyLineMaterials {
       
           // Calculate distance to mouse position
           float dist = distance(mousePosition, vec2(pos.x, pos.y));
-          float effect = hovered * smoothstep(0.2, 0.0, dist) * noise(pos.xy * 10.0 + time);
+          float effect = hovered * smoothstep(0.2, 0.0, dist) * noise(pos.xy * 10.0 + sineTime);
       
           // Apply explode effect
           pos += normal * effect * explodeIntensity;
@@ -917,7 +926,7 @@ export class SkyLineMaterials {
 
       fragmentShader: `
         varying vec2 vUv;
-        uniform float time;
+        uniform float sineTime;
         uniform float hovered;
         uniform vec2 resolution;
         uniform vec2 mousePosition;
@@ -926,13 +935,13 @@ export class SkyLineMaterials {
   
         // Cyclic noise function with smooth oscillations
         float cyclicNoise(vec2 p) {
-          float angle = sin(p.x * 5.0 + time * 0.5) + cos(p.y * 5.0 + time * 0.5);
+          float angle = sin(p.x * 5.0 + sineTime * 0.5) + cos(p.y * 5.0 + sineTime * 0.5);
           return fract(sin(dot(p + angle, vec2(12.9898, 78.233))) * 43758.5453);
         }
   
         // Noise function (similar to saw shader)
         float abstractNoise(vec2 p) {
-          float angle = sin(p.x * 5.0 + time * 0.5) + cos(p.y * 5.0 + time * 0.5);
+          float angle = sin(p.x * 5.0 + sineTime * 0.5) + cos(p.y * 5.0 + sineTime * 0.5);
           return fract(sin(dot(p + angle, vec2(12.9898, 78.233))) * 43758.5453);
         }
   
@@ -1139,7 +1148,7 @@ export class SkyLineMaterials {
         }
 
         float generateAgeDependentFlock(vec3 q, vec3 birdPos, float bodySize, float wingSize, float headSize, float beakLength, float wingAngle, float ageFactor) {
-          float t = time;
+          float t = sineTime;
         
           // Age-based oscillation amplitude and frequency
           float youngWiggleAmp = 0.3 * (1.0 - ageFactor); // More wiggle for young
@@ -1200,16 +1209,16 @@ export class SkyLineMaterials {
         // Main Map with birds in the scene
         float map(vec3 p) {
           // Sun
-          vec3 sunPos = vec3(sin(time) * 3.0, 9.0, -90.0); // Sun Position
+          vec3 sunPos = vec3(sin(sineTime) * 3.0, 9.0, -90.0); // Sun Position
           float sun = sdSphere(p - sunPos, 1.0); // Sphere SDF
 
-          // Bird position and movement based on time
+          // Bird position and movement based on sineTime
           float bodySize = 0.5;
           float wingSize = 0.2;
           float headSize = 0.2;
           float beakLength = 0.1;
-          float wingAngle = sin(time * 2.0) * 0.5; // Flapping wing animation
-          vec3 birdPos = vec3(sin(time) * 3.0, cos(time) * 3.0, time); // Bird movement
+          float wingAngle = sin(sineTime * 2.0) * 0.5; // Flapping wing animation
+          vec3 birdPos = vec3(sin(sineTime) * 3.0, cos(sineTime) * 3.0, sineTime); // Bird movement
 
           // Streets and Parkways, Create building SDF and place it on street
           // Use mod(p.x, grid_size) and mod(p.z, grid_size) for infinite grid layout
@@ -1217,15 +1226,15 @@ export class SkyLineMaterials {
           float road_width = 2.5;  // Adjust road widthfloat grid_size = 15.0;
 
           // Age Factor
-          float ageFactor = 0.5 + 0.3 * sin(time * 2.0);  // Dynamic size variation
+          float ageFactor = 0.5 + 0.3 * sin(sineTime * 2.0);  // Dynamic size variation
   
           vec3 q = p; // input copy
 
           // Weather Factor the ommitted swizzled vec param is the axis of rotation
-          q.z += time * 0.4; // Forward Camera Movement  
+          q.z += sineTime * 0.4; // Forward Camera Movement  
           q.xz = fract(p.xz) - 0.5; // Space Repetition 0.5 is the center of repetition
-          q.y -= time * 0.4; // Upward Movement
-          // q.xz *= rot2D(fract(time * 4.0) - 0.5); 
+          q.y -= sineTime * 0.4; // Upward Movement
+          // q.xz *= rot2D(fract(sineTime * 4.0) - 0.5); 
   
           // float box = sdBox(q * 3.0, vec3(0.15)) / 3.0; 
           q = fract(p) - 0.5; // Space Repetition 0.5 is the center of repetition
@@ -1250,7 +1259,7 @@ export class SkyLineMaterials {
           // Generate birds
           float bird = sdBird(q, birdPos, bodySize, birdPos, wingSize, birdPos, headSize, beakLength, wingAngle);
           float flock = generateFlock(q * 3.0, birdPos, bodySize, wingSize, headSize, beakLength, wingAngle, ageFactor) / 3.0;
-          birdPos += q - vec3(mod(q.x, grid_size), 6.0 * time, mod(q.z, grid_size));
+          birdPos += q - vec3(mod(q.x, grid_size), 6.0 * sineTime, mod(q.z, grid_size));
 
           // ground 
           float ground = sdGround(p);
@@ -1293,12 +1302,12 @@ export class SkyLineMaterials {
           return clamp(shadowFactor, 0.2, 1.0); // Ensure valid shadow range
         }
       
-        vec3 computeCameraPosition(float time) {
+        vec3 computeCameraPosition(float sineTime) {
           float radius = 5.0; // Adjust for larger or smaller movement
           float speed = 0.5; // Adjust rotation speed
       
-          float camX = radius * cos(time * speed);
-          float camZ = radius * sin(time * speed);
+          float camX = radius * cos(sineTime * speed);
+          float camZ = radius * sin(sineTime * speed);
           
           return vec3(camX, 1.5, camZ - 3.0); // Y-position can be adjusted for height
         }
@@ -1307,8 +1316,8 @@ export class SkyLineMaterials {
           float radius = 5.0; // Adjust for larger or smaller movement
           float speed = 0.5; // Adjust rotation speed
       
-          float camX = t  + (radius * cos(time * speed));
-          float camZ = t + (radius * sin(time * speed));
+          float camX = t  + (radius * cos(sineTime * speed));
+          float camZ = t + (radius * sin(sineTime * speed));
           float x = camX * res.x;
           float y = res.y;
           float z = camZ - 3.0;
@@ -1321,16 +1330,16 @@ export class SkyLineMaterials {
           return mix(fogColor, color, fogFactor); // Blend fog with scene color
         }
 
-        void wiggleCamera(inout vec3 ro, inout vec3 rd, vec2 uv, vec2 mouse, float time) {
+        void wiggleCamera(inout vec3 ro, inout vec3 rd, vec2 uv, vec2 mouse, float sineTime) {
           // Adding wiggle effect to the camera
-          ro.x += sin(time * 2.0) * 0.5;
-          ro.y += cos(time * 1.5) * 0.2;
+          ro.x += sin(sineTime * 2.0) * 0.5;
+          ro.y += cos(sineTime * 1.5) * 0.2;
           
           // Slight noise-based distortion on ray direction
           rd += normalize(vec3(
-              sin(uv.x * time * 0.5) * 0.1,  
-              cos(uv.y * time * 0.3) * 0.1,  
-              sin(uv.x * time * 0.7) * 0.1  
+              sin(uv.x * sineTime * 0.5) * 0.1,  
+              cos(uv.y * sineTime * 0.3) * 0.1,  
+              sin(uv.x * sineTime * 0.7) * 0.1  
           ));
 
           rd = normalize(rd); // Normalize direction after adding noise
@@ -1347,21 +1356,23 @@ export class SkyLineMaterials {
         void main() {
             vec2 fragCoord = gl_FragCoord.xy;
             vec2 uv = fragCoord / resolution; // Proper UV mapping
-            vec2 mouse = (mousePosition.xy * 2.0 - fragCoord) / resolution.y;
+            // vec2 mouse = (mousePosition.xy * 2.0 - fragCoord) / resolution.y;
+            vec2 mouse = mousePosition * 2.0 - 1.0; // 
+          
 
             // Noise and Soft Min calculations
             float n = noise(uv * sin(shapeFactor + uv.x) + sin(uv * sin(shapeFactor + uv.x)));
-            float smn = smin(uv.x + time, uv.y + shapeFactor, shapeFactor + sin(uv.x * shapeFactor));
+            float smn = smin(uv.x + sineTime, uv.y + shapeFactor, shapeFactor + sin(uv.x * shapeFactor));
             float shadowIntensity = 0.1;
         
             // UV Transformations
-            uv *= 2.0 + time;
+            uv *= 2.0 + sineTime;
         
             float fov = 1.0;
             vec3 ro = vec3(uv, -3.0); // Ray Origin
             vec3 rd = normalize(vec3(uv * fov, 1.0)); // Ray Direction
         
-            uv *= 1.2 + noise(uv * time) * 0.05;  // Slight noise-based distortion
+            uv *= 1.2 + noise(uv * sineTime) * 0.05;  // Slight noise-based distortion
 
             // Shadow and Reflections
             vec3 lightPos = vec3(0.0, 10.0, -5.0); // Light position
@@ -1374,16 +1385,20 @@ export class SkyLineMaterials {
             float t = 0.0; // Total Distance Travelled By Ray
             vec3 normal; // Declare normal
             vec3 color = vec3(t);
-            // vec3 color = vec3(t * time * 0.2 * depthFactor + noise(uv.xy * 3.0 + time * 0.5));
+            // vec3 color = vec3(t * sineTime * 0.2 * depthFactor + noise(uv.xy * 3.0 + sineTime * 0.5));
         
             // Ray Marching Algorithm
             for (int i = 0; i < 80; i++) {
                 vec3 p = ro + rd * t; // Position along the ray
+          
+                // Apply wiggle effect to the camera
+                //wiggleCamera(ro, rd, uv, mouse, sineTime);
+
                 float d = map(p); // Current distance to the scene
                 // lightDir = normalize(lightPos - p);
 
                 // Apply wiggle effect to the camera
-                wiggleCamera(ro, rd, uv, mouse, time);
+                wiggleCamera(ro, rd, uv, mouse, sineTime);
                     
                 // Compute Shadows and reflections
                 if (d < 0.001) {  
@@ -1413,9 +1428,9 @@ export class SkyLineMaterials {
             // color += fract(rayPower) - 0.5; // Space Repetition 0.5 is the center of repetitins
   
             // Final Coloring with Shadows
-            float rgR = rayPower + S(noise(uv.xy * 4.0 + time * 0.3)) * shadowIntensity;
-            float rgG = rayPower + S(noise(uv.yx * 3.0 + time * 0.5)) * shadowIntensity;
-            float rgB = rayPower + S(noise(uv.xy * 2.0 + time * 0.7)) * shadowIntensity;
+            float rgR = rayPower + S(noise(uv.xy * 4.0 + sineTime * 0.3)) * shadowIntensity;
+            float rgG = rayPower + S(noise(uv.yx * 3.0 + sineTime * 0.5)) * shadowIntensity;
+            float rgB = rayPower + S(noise(uv.xy * 2.0 + sineTime * 0.7)) * shadowIntensity;
             
             color += vec3(rgR, rgG, rgB);
             color += vec3(rayPower);
@@ -1436,16 +1451,20 @@ export class SkyLineMaterials {
   useSkylineTerrainShader() {
     this.skylineTerrainShader = {
       uniforms: {
-        resolution: { value: new THREE.Vector2(this.width, this.height) },
-        time: { value: this.time },
         hovered: { value: this.hovered },
+        sineTime: { value: this.sineTime },
         shapeFactor: { value: this.shapeFactor },
+        time: { value: this.clock.getElapsedTime() },
         mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
+        resolution: { value: new THREE.Vector2(this.width, this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
       },
 
       vertexShader: `
-        uniform float time;
+        uniform float sineTime;
         uniform float hovered;
         uniform vec2 mousePosition;
         uniform float explodeIntensity;
@@ -1461,7 +1480,7 @@ export class SkyLineMaterials {
       
           // Calculate distance to mouse position
           float dist = distance(mousePosition, vec2(pos.x, pos.y));
-          float effect = hovered * smoothstep(0.2, 0.0, dist) * noise(pos.xy * 10.0 + time);
+          float effect = hovered * smoothstep(0.2, 0.0, dist) * noise(pos.xy * 10.0 + sineTime);
       
           // Apply explode effect
           pos += normal * effect * explodeIntensity;
@@ -1471,7 +1490,7 @@ export class SkyLineMaterials {
       `,
 
       fragmentShader: `
-        uniform float time;
+        uniform float sineTime;
         uniform float hovered;
         uniform float shapeFactor;
         uniform vec2 mousePosition;
@@ -1641,13 +1660,13 @@ export class SkyLineMaterials {
 
         // // Main map function with bird in the scene
         // float map(vec3 p) {
-        //     // Bird position and movement based on time
-        //     vec3 birdPos = vec3(sin(time) * 3.0, cos(time) * 3.0, 0.0); // Bird movement
+        //     // Bird position and movement based on sineTime
+        //     vec3 birdPos = vec3(sin(sineTime) * 3.0, cos(sineTime) * 3.0, 0.0); // Bird movement
         //     float birdBodySize = 0.5;
         //     float birdWingSize = 0.2;
         //     float birdHeadSize = 0.2;
         //     float birdBeakLength = 0.1;
-        //     float wingAngle = sin(time * 2.0) * 0.5; // Flapping wing animation
+        //     float wingAngle = sin(sineTime * 2.0) * 0.5; // Flapping wing animation
 
         //     // Generate bird
         //     float bird = sdBird(p, birdPos, birdBodySize, birdPos, birdWingSize, birdPos + vec3(0.0, 0.5, 0.0), birdHeadSize, birdBeakLength, wingAngle);
@@ -1665,17 +1684,17 @@ export class SkyLineMaterials {
         // The main map function that will define the scene
         float map(vec3 p) {
           // Define building parameters
-          vec3 spherePos = vec3(-5.0 * sin(time * 5.0), 2.0, 0.0);
-          spherePos += rotate3D(spherePos, vec3(1.0, 0.5, 0.0), time * 0.3);
+          vec3 spherePos = vec3(-5.0 * sin(sineTime * 5.0), 2.0, 0.0);
+          spherePos += rotate3D(spherePos, vec3(1.0, 0.5, 0.0), sineTime * 0.3);
           float sphere = sdSphere(p - spherePos, 0.9);
 
           // Bird position and movement, include more natural flight behavior
-          vec3 birdPos = vec3(sin(time + p.x * 2.0) * 3.0, cos(time + p.z * 2.0) * 3.0 + 1.0, cos(time + p.x * 0.5) * 2.0); // Flight movement, based on world position for variety
+          vec3 birdPos = vec3(sin(sineTime + p.x * 2.0) * 3.0, cos(sineTime + p.z * 2.0) * 3.0 + 1.0, cos(sineTime + p.x * 0.5) * 2.0); // Flight movement, based on world position for variety
           float birdBodySize = 0.5;
           float wingSize = 0.2;
           float headSize = 0.2;
           float beakLength = 0.1;
-          float wingAngle = sin(time * 2.0) * 0.5; // Flapping wing animation
+          float wingAngle = sin(sineTime * 2.0) * 0.5; // Flapping wing animation
 
 
           // Ground SDF
@@ -1683,11 +1702,11 @@ export class SkyLineMaterials {
           // p += rotate3D(p, p.xy, angle);
 
           // Weather Factor
-          p.z += time * 0.4; // Forward Camera Movement      
+          p.z += sineTime * 0.4; // Forward Camera Movement      
   
           // Infinite city generation
           vec3 q = p; // input copy
-          q.y -= time * 0.4; // Upward Movement
+          q.y -= sineTime * 0.4; // Upward Movement
           q = fract(p) - 0.5; // Space Repetition 0.5 is the center of repetition
 
           // // Boxes
@@ -1716,7 +1735,7 @@ export class SkyLineMaterials {
           // Animals and Flying Creatures
           float bird = sdBird(q, birdPos, birdBodySize, birdPos, wingSize, birdPos + vec3(0.0, 0.5, 0.0), headSize, beakLength, wingAngle);
           // Smaller birds at different offsets
-          float scaleFactor = 0.5 + 0.3 * sin(time * 2.0);  // Dynamic size variation
+          float scaleFactor = 0.5 + 0.3 * sin(sineTime * 2.0);  // Dynamic size variation
           float bird1 = sdBird(q, birdPos + vec3(2.0, 1.0, -1.0), birdBodySize * scaleFactor, birdPos, wingSize * scaleFactor, birdPos + vec3(0.0, 0.5, 0.0) * scaleFactor, headSize * scaleFactor, beakLength * scaleFactor, wingAngle);
 
           float bird2 = sdBird(q, birdPos + vec3(2.0, 1.0, -1.0), birdBodySize * scaleFactor * 0.5, birdPos, wingSize * scaleFactor, birdPos + vec3(0.0, 0.5, 0.0) * scaleFactor, headSize * scaleFactor, beakLength * scaleFactor, wingAngle);
@@ -1831,27 +1850,27 @@ export class SkyLineMaterials {
           ));
         }
 
-        vec3 computeCameraTubePosition(float time) {
+        vec3 computeCameraTubePosition(float sineTime) {
           float radius = 5.0;  // Adjust radius for left/right swing
           float speed = 0.5;   // Rotation speed
       
       
-          float camX = radius * sin(time * speed);  // Left/Right movement
-          float camZ = -time * 3.0;  // Forward movement into the tunnel
+          float camX = radius * sin(sineTime * speed);  // Left/Right movement
+          float camZ = -sineTime * 3.0;  // Forward movement into the tunnel
 
-          // float camX = radius * sin(time * speed);
-          // float camY = cos(time * 0.4) * 0.5;  // Small up/down motion
-          // float camZ = -time * (2.5 + sin(time * 0.2) * 1.5); // Smooth speed variation  
+          // float camX = radius * sin(sineTime * speed);
+          // float camY = cos(sineTime * 0.4) * 0.5;  // Small up/down motion
+          // float camZ = -sineTime * (2.5 + sin(sineTime * 0.2) * 1.5); // Smooth speed variation  
           // return vec3(camX, camY, camZ);
           return vec3(camX, 0.5, camZ);  // Keep Y constant
         }
       
-        vec3 computeCameraPosition(float time) {
+        vec3 computeCameraPosition(float sineTime) {
           float radius = 5.0; // Adjust for larger or smaller movement
           float speed = 0.5; // Adjust rotation speed
       
-          float camX = radius * cos(time * speed);
-          float camZ = radius * sin(time * speed);
+          float camX = radius * cos(sineTime * speed);
+          float camZ = radius * sin(sineTime * speed);
           
           return vec3(camX, 1.5, camZ - 3.0); // Y-position can be adjusted for height
         }
@@ -1861,16 +1880,16 @@ export class SkyLineMaterials {
           return mix(fogColor, color, fogFactor); // Blend fog with scene color
         }
 
-        void wiggleCamera(inout vec3 ro, inout vec3 rd, vec2 uv, vec2 mouse, float time) {
+        void wiggleCamera(inout vec3 ro, inout vec3 rd, vec2 uv, vec2 mouse, float sineTime) {
           // Adding wiggle effect to the camera
-          ro.x += sin(time * 2.0) * 0.5; // Wiggle the x-axis of the camera path
-          ro.y += cos(time * 1.5) * 0.2; // Wiggle the y-axis of the camera path
+          ro.x += sin(sineTime * 2.0) * 0.5; // Wiggle the x-axis of the camera path
+          ro.y += cos(sineTime * 1.5) * 0.2; // Wiggle the y-axis of the camera path
           
           // Slight noise-based distortion on ray direction
           rd += normalize(vec3(
-              sin(uv.x * time * 0.5) * 0.1,  
-              cos(uv.y * time * 0.3) * 0.1,  
-              sin(uv.x * time * 0.7) * 0.1  
+              sin(uv.x * sineTime * 0.5) * 0.1,  
+              cos(uv.y * sineTime * 0.3) * 0.1,  
+              sin(uv.x * sineTime * 0.7) * 0.1  
           ));
 
           rd = normalize(rd); // Normalize direction after adding noise
@@ -1890,19 +1909,19 @@ export class SkyLineMaterials {
         
           // Noise and Soft Min calculations
           float n = noise(uv * sin(shapeFactor + uv.x) + sin(uv * sin(shapeFactor + uv.x)));
-          float smn = smin(uv.x + time, uv.y + shapeFactor, shapeFactor + sin(uv.x * shapeFactor));
+          float smn = smin(uv.x + sineTime, uv.y + shapeFactor, shapeFactor + sin(uv.x * shapeFactor));
           float shadowIntensity = 0.1;
         
           // UV Transformations
-          uv *= 2.0 + time;
-          uv *= 1.2 + noise(uv * time) * 0.05;  // Slight noise-based distortion
+          uv *= 2.0 + sineTime;
+          uv *= 1.2 + noise(uv * sineTime) * 0.05;  // Slight noise-based distortion
 
           // Initialize Ray marching variables
           float fov = 1.0; 
           float depthFactor = 0.064;
 
           // Light Setup
-          vec3 ro = computeCameraPosition(time);
+          vec3 ro = computeCameraPosition(sineTime);
           // vec3 ro = vec3(0.0, 0.0, -3.0); // Ray Origin
           vec3 rd = normalize(vec3(uv * fov, 1)); // Ray Direction rd = normalize(rd);
 
@@ -1912,7 +1931,7 @@ export class SkyLineMaterials {
           vec3 lightDir;
           
           // Apply wiggle effect to the camera
-          wiggleCamera(ro, rd, uv, mouse, time);
+          wiggleCamera(ro, rd, uv, mouse, sineTime);
         
           // 🔥🔥 Ray Marching Algorithm
           float t = 0.0; // Total Distance Travelled By Ray
@@ -1948,9 +1967,9 @@ export class SkyLineMaterials {
           // color = vec3(rayPower * depthFactor );
 
           // Compute colors with depth factor
-          float rgR = shadowIntensity + rayPower + S(noise(uv.xy * 4.0 + time * 0.3)) * shadowIntensity; 
-          float rgG = shadowIntensity + rayPower + S(noise(uv.yx * 3.0 + time * 0.5)) * shadowIntensity;
-          float rgB = shadowIntensity + rayPower + S(noise(uv.xy * 2.0 + time * 0.7)) * shadowIntensity;
+          float rgR = shadowIntensity + rayPower + S(noise(uv.xy * 4.0 + sineTime * 0.3)) * shadowIntensity; 
+          float rgG = shadowIntensity + rayPower + S(noise(uv.yx * 3.0 + sineTime * 0.5)) * shadowIntensity;
+          float rgB = shadowIntensity + rayPower + S(noise(uv.xy * 2.0 + sineTime * 0.7)) * shadowIntensity;
       
           // Final Coloring with Shadows
           color = vec3(rgR, rgG, rgB);
@@ -1961,9 +1980,9 @@ export class SkyLineMaterials {
 
           // Final Coloring with Shadows
           color = vec3(
-              rayPower + S(noise(uv.xy * 4.0 + time * 0.3)) * shadowIntensity,
-              rayPower + S(noise(uv.yx * 3.0 + time * 0.5)) * shadowIntensity,
-              rayPower + S(noise(uv.xy * 2.0 + time * 0.7)) * shadowIntensity
+              rayPower + S(noise(uv.xy * 4.0 + sineTime * 0.3)) * shadowIntensity,
+              rayPower + S(noise(uv.yx * 3.0 + sineTime * 0.5)) * shadowIntensity,
+              rayPower + S(noise(uv.xy * 2.0 + sineTime * 0.7)) * shadowIntensity
           );
 
           color = applyFog(color, t, fog, fogDensity);
@@ -1975,88 +1994,69 @@ export class SkyLineMaterials {
     this.skylineTerrainMaterial = new THREE.ShaderMaterial(this.skylineTerrainShader);
   }
 
+  getShaders() {
+    this.shaders = [
+      this.ceasarsShader,
+      this.skyCityShader, 
+      this.glassSkylineShader,
+      this.skylineTerrainShader
+    ];
+  }
+
   updateResolution(shader, width, height) {
     if (shader && shader.uniforms && shader.uniforms.resolution) {
       shader.uniforms.resolution.value.set(width, height);
     }
   }
 
-  handleResize(renderer, width = window.innerWidth, height = window.innerHeight) {
-    if (!renderer) return;
+  handleResize(width = window.innerWidth, height = window.innerHeight) {
     // Each shader handles its own resolution updates
-    if (this.skyCityShader) this.updateResolution(this.skyCityShader, width, height);
-    if (this.ceasarsShader) this.updateResolution(this.ceasarsShader, width, height);
-    if (this.skylineTerrainShader) this.updateResolution(this.skylineTerrainShader, width, height);
-    if (this.glassSkylineShader) this.updateResolution(this.glassSkylineShader, width, height);
+    this.shaders.forEach(shader => {if (shader) this.updateResolution(shader, width, height)});
   }
-
-
-  // Handle hover effect on shaders
-  handleHoverEffect(shader, mousePosition) {
-    if (shader && mousePosition) {
-      // Update hover effect uniforms
-      shader.uniforms.hovered.value = 1.0;
-      shader.uniforms.mousePosition.value =  new THREE.Vector2(mousePosition.x, mousePosition.y);
-
-      // Dynamically update explodeIntensity based on time and mouse hover
-      shader.uniforms.explodeIntensity.value = Math.sin(this.explodeIntensity + this.time);
-      shader.uniforms.shapeFactor.value = this.shapeFactor + (this.time * Math.sin(0.001 + this.time));
-    }
+  
+  updateMouseExit() {
+    this.shaders.forEach(shader => {
+      if (shader?.uniforms?.hovered) {
+        shader.uniforms.hovered.value = 0.0;
+      }
+    });
   }
-
-
-  updateHoverEffect(event) {
+  
+  handleMouseMove(event) {
     if (event && this.mousePosition) {
       this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
       this.mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
-      // this.mouseUtils.updateMouse(event);
     }
 
-    // Copy Updated Mouse Position
-    // this.mousePosition = this.mouseUtils.getMousePosition();
-
-    // Update the shader with the current mouse position and toggle the effect
-    if (this.skyCityShader) this.handleHoverEffect(this.skyCityShader, this.mousePosition);
-    if (this.ceasarsShader) this.handleHoverEffect(this.ceasarsShader, this.mousePosition);
-    if (this.skylineTerrainShader) this.handleHoverEffect(this.skylineTerrainShader, this.mousePosition);
-    if (this.glassSkylineShader) this.updateResolution(this.glassSkylineShader, this.mousePosition);
-  }
-
-  updateEvents() {
-    window.addEventListener('mousemove', (e) => {
-      this.updateHoverEffect(e);
+    this.shaders.forEach(shader => {
+      if (!shader?.uniforms) return;
+      
+      const { uniforms } = shader;
+  
+      if (uniforms.hovered) uniforms.hovered.value = 1.0;
+      if (uniforms.mousePosition) uniforms.mousePosition.value.set(this.mousePosition.x, this.mousePosition.y);
+      if (uniforms.explodeIntensity) uniforms.explodeIntensity.value = Math.sin(this.explodeIntensity + this.sineTime);
+      if (uniforms.shapeFactor) uniforms.shapeFactor.value = this.shapeFactor + (this.sineTime * Math.sin(0.001 + this.sineTime));
     });
   }
+  
+  updateEvents() {
+    // Only bind listeners once
+    window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+    window.addEventListener('mouseout', () => this.updateMouseExit());
+  }
 
-  // Update method for shader uniforms and dynamic behavior
   update() {
-    // this.addMouseListener()
-    this.time += this.deltaTime; // Update time for animation
-
-    // Update other uniforms if necessary
-    if (this.skyCityShader) {
-      this.skyCityShader.uniforms.shapeFactor.value = this.time * Math.sin(0.001 + this.time);
-      this.skyCityShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-      this.skyCityShader.uniforms.explodeIntensity.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
-
-    if (this.glassSkylineShader) {
-      this.glassSkylineShader.uniforms.shapeFactor.value = this.time * Math.sin(0.001 + this.time);
-      this.glassSkylineShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-      this.glassSkylineShader.uniforms.explodeIntensity.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
-
-    if (this.ceasarsShader) {
-      this.ceasarsShader.uniforms.shapeFactor.value = this.time * Math.sin(0.001 + this.time);
-      this.ceasarsShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-      this.ceasarsShader.uniforms.explodeIntensity.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
-
-    if (this.skylineTerrainShader) {
-      this.skylineTerrainShader.uniforms.shapeFactor.value = this.time * Math.sin(0.001 + this.time);
-      this.skylineTerrainShader.uniforms.time.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-      this.skylineTerrainShader.uniforms.explodeIntensity.value = (Math.sin(this.time) * 0.5) + 0.5 + Math.cos(0.1 + this.time);
-    }
+    this.sineTime += this.deltaTime;
+    const elapsed = this.clock.getElapsedTime();
+    this.shaders.forEach(shader => {
+      if (shader) {
+        shader.uniforms.time.value =  elapsed;
+        shader.uniforms.shapeFactor.value = this.sineTime * Math.sin(0.001 + this.sineTime);
+        shader.uniforms.sineTime.value = (Math.sin(this.sineTime) * 0.5) + 0.5 + Math.cos(0.1 + this.sineTime);
+        shader.uniforms.explodeIntensity.value = (Math.sin(this.sineTime) * 0.5) + 0.5 + Math.cos(0.1 + this.sineTime);
+      }
+    });
   }
 }
 export default SkyLineMaterials;
