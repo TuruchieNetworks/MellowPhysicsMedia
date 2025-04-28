@@ -1907,45 +1907,44 @@ float giantFlea(vec3 p, vec2 u){
   return bug;
 }
 
-float wiredRipples(vec3 p, vec2 u){
-    vec2 pos = vec2(0.5)-u;
-    vec3 p = vec3(-90.+sin(time)) - vec3(u, 90.0 + sin(time));
-    float vd = distance(pos.y, 0.0);
-    float hd = distance(pos.x, 0.0);
-    float fd = distance(p.z, 0.0);
+float sdWaterBed(vec3 p, vec2 u){
+  vec2 pos = vec2(0.5)-u;
+  vec3 p = vec3(-90.+sin(time)) - vec3(u, 90.0 + sin(time));
+  float vd = distance(pos.y, 0.0);
+  float hd = distance(pos.x, 0.0);
+  float fd = distance(p.z, 0.0);
+  float r = length(pos)*2.0;
+  float rv = length(vec2(vd, r));
+  float rh = length(vec2(hd, r));
+  float rf = length(vec2(fd, r));
+  float bite = atan(pos.y*vd,pos.x*sin(p.z));
+  float tie =1.-atan(pos.y*vd,pos.x*sin(p.z));
+  float flea = 1. / tan(bite);
+  float a = 1. - (flea + tan(bite));
+  // a *= sin(time+fd); // Drama bubble bite
+  a = fract(atan(fract(sin(time+hd)*sin(rf)), (flea*bite))); // Drama bubble bite
+  a = fract(atan(fract(cos(hd)*sin(rf+sin(hd))), (flea*bite))); // Drama bubble bite
+  a = fract(atan(fract(sin(hd)*sin(rf)), (flea*bite))); // Giant Dragon
+  // a *= sin(time+fd); // Drama bubble bite
+  a = fract(min(fract((time+hd)*sin(rf)), (flea*bite))); // Mean bubble bite
+  // a *= sin(time+fd) * 0.001;
+  
+  
 
-    float r = length(pos)*2.0;
-    float rv = length(vec2(vd, r));
-    float rh = length(vec2(hd, r));
-    float rf = length(vec2(fd, r));
-    float bite = atan(pos.y*vd,pos.x*sin(p.z));
-    float tie =1.-atan(pos.y*vd,pos.x*sin(p.z));
-    float flea = 1. / tan(bite);
-    float a = 1. - (flea + tan(bite));
-    // a *= sin(time+fd); // Drama bubble bite
-    a = fract(atan(fract(sin(time+hd)*sin(rf)), (flea*bite))); // Drama bubble bite
-    a = fract(atan(fract(cos(hd)*sin(rf+sin(hd))), (flea*bite))); // Drama bubble bite
-    a = fract(atan(fract(sin(hd)*sin(rf)), (flea*bite))); // Giant Dragon
-    // a *= sin(time+fd); // Drama bubble bite
-    a = fract(min(fract((time+hd)*sin(rf)), (flea*bite))); // Mean bubble bite
-    // a *= sin(time+fd) * 0.001;
-    
-    
+  float m = 1.0;
+  float n = 4.0;
+  float f = cos(a*3.*m+time)*sin(a*45.9*n) ;// Animatedflea
+  f = sin(a*3.*m+time-flea)*sin(tan(a*45.9*n)) ;
+  f = sin(a*3.*m+time-flea)*tan(sin(a*45.9*n))-r/1.6 ;
+  f = (tan(a*3.*n*m+time-flea)*tan(sin(bite+a*n*45.9*n)) -r*2.) ;
+  // f = abs(cos(a*3.));
+  // f = abs(cos(1.-a*2.5*sin(rf)))*.5+.3*tan(cos(a*2.5))*.5+.3-r/2.; 
+  // f = fract(cos(a*12.*sin(rf))*(sin(a*3.*a/r)))*.8+.1;
+  // f = smoothstep(-.5,1., cos(a*10.)*a*tie+p.z)*0.2+0.5;
 
-    float m = 1.0;
-    float n = 4.0;
-    float f = cos(a*3.*m+time)*sin(a*45.9*n) ;// Animatedflea
-    f = sin(a*3.*m+time-flea)*sin(tan(a*45.9*n)) ;
-    f = sin(a*3.*m+time-flea)*tan(sin(a*45.9*n))-r/1.6 ;
-    f = (tan(a*3.*n*m+time-flea)*tan(sin(bite+a*n*45.9*n)) -r*2.) ;
-    // f = abs(cos(a*3.));
-    // f = abs(cos(1.-a*2.5*sin(rf)))*.5+.3*tan(cos(a*2.5))*.5+.3-r/2.; 
-    // f = fract(cos(a*12.*sin(rf))*(sin(a*3.*a/r)))*.8+.1;
-    // f = smoothstep(-.5,1., cos(a*10.)*a*tie+p.z)*0.2+0.5;
+  float waterBed = 1.-smoothstep(f,f+0.02,r);
 
-    float ripples = 1.-smoothstep(f,f+0.02,r);
-
-    return ripples;
+  return waterBed;
 }
 
 

@@ -18,17 +18,8 @@ export class PlaneManager {
     this.mat = shaderManager.dragonCityTerrainMaterial;
     this.color = '#' + Math.floor(Math.random() * 16777215).toString(16);
 
-    // Initialize shaders
-    // this.shader = new Shaders();
-
-    // Create the sides of the plane based on the default cuboid box
-    // if (this.planePad) {
-    //   this.createFlatPlane();  
-    //   this.createCuboidPlane(this.width, this.thickness, this.color, this.side);
-    // } else {
     this.createFlatPlane(this.mat);
     this.createCuboidPlane(this.width, this.thickness, this.color, this.side);
-    // }
   }
 
   createFlatPlane(shaderMaterial = this.mat) {
@@ -61,7 +52,7 @@ export class PlaneManager {
 
     // Create side mesh
     this.cuboidPlaneMesh = new THREE.Mesh(this.cuboidGeometry, this.cuboidMaterial);
-    this.cuboidPlaneMesh.position.y = -2.19; //-=thickness /// 2; // Move the sides up to be in line with the plane
+    this.cuboidPlaneMesh.position.y = -0.369; //-=thickness /// 2; // Move the sides up to be in line with the plane
     this.cuboidPlaneMesh.receiveShadow = true; // Enable shadow receiving for sides
     this.scene.add(this.cuboidPlaneMesh);
 
@@ -75,7 +66,7 @@ export class PlaneManager {
     // mat.side = THREE.DoubleSide; // Ensure both sides are visible
     this.explosivePlane = new THREE.Mesh(geo, mat);
     this.explosivePlane.rotation.x = -Math.PI / 2;
-    this.explosivePlane.position.y = -0.031; // Reappear -0.13; // -0.02; Freshly Boilin // 0.073; // Plain View
+    this.explosivePlane.position.y = -0.131; // Reappear -0.13; // -0.02; Freshly Boilin // 0.073; // Plain View
     this.explosivePlane.receiveShadow = true;
     this.scene.add(this.explosivePlane);
   }
@@ -84,6 +75,7 @@ export class PlaneManager {
     const geo = new THREE.PlaneGeometry(l, b, h);
     this.planePad = new THREE.Mesh(geo, mat);
     this.planePad.rotation.x = -Math.PI / 2;
+    this.planePad.position.y = -0.131; 
     this.planePad.receiveShadow = true;
     this.scene.add(this.planePad);
   }
@@ -110,7 +102,7 @@ export class PlaneManager {
     const shape = new CANNON.Plane();
     this.infiniteGround = new CANNON.Body({
       mass: 0,
-      position: new CANNON.Vec3(0.0, 0.0913, 0.0)
+      position: new CANNON.Vec3(0.0, -0.0913, 0.0)
     });
 
     this.infiniteGround.addShape(shape);

@@ -159,6 +159,7 @@ class PhysicsEngine {
             v.z *= -0.9;  // Reverse and apply damping in Z
             p.z = THREE.MathUtils.clamp(p.z, -halfCubeZ + r, halfCubeZ - r); // Prevent object from going through walls
         }
+        if (boundaryMeshObj.material?.isShaderMaterial) this.shaderManager.updateShaderUniforms(boundaryMeshObj,p);
     }
 
     // Adjust the ground collision method to reflect velocity and include bounce damping
@@ -587,7 +588,7 @@ class PhysicsEngine {
     }
 
     updatePhysicsEngine(meshObj, meshObjs, sceneObjs, boundaryMeshObj) {
-        if (!meshObj || !boundaryMeshObj) return;
+        if (!meshObj || !sceneObjs) return;
 
         // Apply gravity and update positions
         this.applyGravityAndUpdatePositions(meshObj, this.shotsFactor / 1.2);
@@ -596,7 +597,7 @@ class PhysicsEngine {
         meshObj.mesh.position.add(meshObj.velocity.clone().multiplyScalar(0.016));
 
         // ✅ Check boundary collision
-        this.checkWallCollision(meshObj, boundaryMeshObj);
+        if (boundaryMeshObj) this.checkWallCollision(meshObj, boundaryMeshObj);
 
         // ✅ Ground collision
         this.checkGroundCollision(meshObj);

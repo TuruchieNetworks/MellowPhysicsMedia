@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import AtlanticShaderMaterials from '../Shaders/AtlanticShaderMaterials';
 import BeachShaderMaterials from '../Shaders/BeachShaderMaterials';
 import ConvolutionShaderMaterials from '../Shaders/ConvolutionShaderMaterials';
 import DragonCityShaderMaterials from '../Shaders/DragonCityShaderMaterials';
@@ -11,8 +12,11 @@ import GrailShaderMaterials from '../Shaders/GrailShaderMaterials.js';
 import GraphShaderMaterials from '../Shaders/GraphShaderMaterials';
 import GrassFieldMaterial from '../Shaders/GrassFieldMaterials';
 import LandScapeMaterials from '../Shaders/LandScapeMaterials';
-import LucentShadereMaterials from '../Shaders/LucentShadaerMaterials';
+import LavaCaveShaderMaterials from '../Shaders/LavaCaveShaderMaterials';
+import LucentShaderMaterials from '../Shaders/LucentShaderMaterials';
 import MangroveShaderMaterials from '../Shaders/MangroveShaderMaterials';
+import MarienBedShaderMaterials from '../Shaders/MarineBedShaderMaterials';
+import MillWorkShaderMaterials from '../Shaders/MillWorksShaderMaterials';
 import MoltenTerrazoMaterials from '../Shaders/MoltenTerrazoMaterials';
 import NoiseShaderMaterials from '../Shaders/NoiseShaderMaterials';
 import ParkCityShaderMaterials from '../Shaders/ParkCityShaderMaterials';
@@ -25,11 +29,12 @@ import SwampShaderMaterials from '../Shaders/SwampShaderMaterials';
 import TerrainShaderMaterials from '../Shaders/TerrainShaderMaterials';
 import TerrestialMosaicMaterials from '../Shaders/TerrestialMosaicMaterials';
 import TunnelTubeCityMaterials from '../Shaders/TunnelTubeCityMaterials';
+import WaterFallShaderMaterials from '../Shaders/WaterFallShaderMaterials';
 import WrinkledShaderMaterials from '../Shaders/WrinkledShaderMaterials';
 
 class ShaderManager {
   constructor(params,
-    mouse = null) {   
+    mouse = null) {
     // this.params = {
     //   width: params.width ?? window.innerWidth,
     //   height: params.height ?? window.innerHeight,
@@ -51,6 +56,7 @@ class ShaderManager {
     // this.activateManagers();
     this.setShaderManagers();
     this.setShaderMaterials();
+    this.setShaders();
     // this.updateMouseHoverEvents();
   }
 
@@ -88,7 +94,7 @@ class ShaderManager {
 
       // Lucent Mozaics
       { name: 'moltenManager', material: MoltenTerrazoMaterials },
-      { name: 'lucentManager', material: LucentShadereMaterials },
+      { name: 'lucentManager', material: LucentShaderMaterials },
 
       // Music and Frequency
       { name: 'graphManager', material: GraphShaderMaterials },
@@ -103,12 +109,14 @@ class ShaderManager {
       // { name: 'grailManager', material: GrailShaderMaterials },
 
       // Water Scenery
-      { name: 'beachManager', material: BeachShaderMaterials }, 
+      { name: 'beachManager', material: BeachShaderMaterials },
+      { name: 'lavaManager', material: LavaCaveShaderMaterials },
       { name: 'bugManager', material: GiantBugsShaderMaterials },
-      { name: 'mangroveManager', material: MangroveShaderMaterials},
+      { name: 'mangroveManager', material: MangroveShaderMaterials },
 
       // Forest LandScape
-      // { name: 'swampManager', material: SwampShaderMaterials },
+      { name: 'swampManager', material: SwampShaderMaterials },
+      { name: 'waterFallsManager', material: WaterFallShaderMaterials },
       { name: 'lakeManager', material: GalacticLakeWaterShaderMaterials },
       { name: 'forestManager', material: RainForestLandScapeShaderMaterials },
       { name: 'tropicalManager', material: RainForestLandScapeShaderMaterials },
@@ -116,7 +124,12 @@ class ShaderManager {
       // Tropical Grass and Savannah
       { name: 'grassManager', material: GrassFieldMaterial },
       { name: 'savannahManager', material: SavannahShaderMaterials },
-      { name: 'sandyPlainManager', material: SandyPlainShaderMaterials},
+      { name: 'sandyPlainManager', material: SandyPlainShaderMaterials },
+
+      // Ocean and Marine Life
+      { name: 'marineManager', material: MarienBedShaderMaterials },
+      { name: 'atlanticManager', material: AtlanticShaderMaterials },
+      { name: 'millworkManager', material: MillWorkShaderMaterials },
     ];
 
     // Loop through each manager and initialize them
@@ -130,28 +143,21 @@ class ShaderManager {
     });
   }
 
-  setShaderMaterials() {
-    // this.managers = [
-    //   this.sawManager,
-    //   this.noiseManager,
-    //   this.explosiveManager,
-    //   this.convolutionManager, 
-    //   this.frequencyManager, 
-    //   this.terrestialManager,
-    //   this.wrinkledManager, 
-    //   this.terrainManager, 
-    //   this.tunnelManager, 
-    //   this.dragonCityManager, 
-    //   this.skylineManager, 
-    //   this.moltenManager, 
-    //   this.lucentManager, 
-    //   this.sandyPlainManager,
-    //   this.landScapeManager,  
-    //   this.parkCityManager, 
-    //   this.bugManager, 
-    //   this.lakeManager
-    // ]
+  setShaders() {
+    this.shaders = {};
 
+    for (const [managerName, managerInstance] of Object.entries(this.shaderManagers)) {
+      for (const [key, value] of Object.entries(managerInstance)) {
+        if (key.toLowerCase().includes('shader')) {
+          this[key] = value;
+          this.shaders[key] = value; // Optional: Keep a collection
+        }
+      }
+    }
+    console.log(this.shaders);
+  }
+
+  setShaderMaterials() {
     this.shaderMaterials = {};
 
     for (const [managerName, managerInstance] of Object.entries(this.shaderManagers)) {
@@ -164,18 +170,6 @@ class ShaderManager {
     }
   }
 
-  setShaders() {
-    this.shaders = [];
-    this.allShaders = {};
-  
-    Object.entries(this.shaderManagers).forEach(([name, manager]) => {
-      if (Array.isArray(manager.shaders)) {
-        this.shaders.push(...manager.shaders);
-        this.allShaders[name] = manager.shaders;
-      }
-    });
-  }
-  
   computeVelocity(v) {
     return new THREE.Vector3(
       v.x + 5.0,
@@ -183,29 +177,29 @@ class ShaderManager {
       v.z + 1.0
     );
   }
-  
+
   coolDownRipples(u, meshObj) {
     const id = meshObj.uuid || meshObj.id;
     const cooldownMs = 300;
-  
+
     u.u_collisionDetected = 1.0;
-  
+
     if (this.rippleCooldowns.has(id)) {
       clearTimeout(this.rippleCooldowns.get(id));
     }
-  
+
     const timeoutId = setTimeout(() => {
       u.u_collisionDetected = 0.0;
       this.rippleCooldowns.delete(id);
     }, cooldownMs);
-  
+
     this.rippleCooldowns.set(id, timeoutId);
   }
-  
+
   applyMeshUniformUpdates(u, meshObj, hit) {
     const now = performance.now();
     const v = meshObj.velocity || new THREE.Vector3(0, 0, 0);
-  
+
     if (u.u_meshPosition?.set) u.u_meshPosition.set(hit.x, hit.y, hit.z);
     if (u.u_velocity?.set) u.u_velocity.copy(this.computeVelocity(v));
     if (u.u_rippleOrigin?.set) u.u_rippleOrigin.set(hit.x, hit.y, hit.z);
@@ -213,23 +207,23 @@ class ShaderManager {
     if (typeof u.u_rippleTime !== 'undefined') u.u_rippleTime = now * 0.001;
     if (typeof u.u_collisionDetected !== 'undefined') this.coolDownRipples(u, meshObj);
   }
-  
+
   updateShaderUniforms(meshObj, collisionPoint = null) {
     const hit = collisionPoint || meshObj.position;
-  
+
     this.shaders.forEach(shader => {
       const u = shader?.uniforms?.customUniforms?.value;
       if (u) {
         this.applyMeshUniformUpdates(u, meshObj, hit);
       }
     });
-  }  
-  
+  }
+
   handleResize(width = window.innerWidth, height = window.innerHeight) {
     // Each shader handles its own resolution updates
     Object.values(this.shaderManagers).forEach(manager => {
       if (manager?.handleResize instanceof Function) {
-          manager.handleResize(width, height);
+        manager.handleResize(width, height);
       }
     });
   }
@@ -241,7 +235,7 @@ class ShaderManager {
       }
     });
   }
-  
+
 }
 export default ShaderManager;
 

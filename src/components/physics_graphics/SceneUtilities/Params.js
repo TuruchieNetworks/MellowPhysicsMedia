@@ -12,16 +12,17 @@ class Params {
     this.deltaTime = 1 / 60;
     this.shapeFactor = 0.5;
     this.explodeIntensity = 0.1;
+    this.cubeSize = 50;
     this.boundary = 80;
+    this.midBoundary = 100;
+    this.largeBoundary = 120;
+    this.xlargeBoundary = 160;
+    this.xxlargeBoundary = 200;
     this.thickness = 4.2;
-    this.flatShading = true;
+    this.flatShading = 1.0;;
     this.u_frequency = 0.0;
-    this.withFiniteGround = false;
-    this.withPlanePad = true;
-    this.withPlaneBox = true;
     this.mass = 13.1;
     this.radius = 1.6;
-    this.cubeSize = 50;
     this.sleepTimeLimit = 3;
     this.linearDamping = 0.1;
     this.sleepSpeedLimit = 3.1;
@@ -32,6 +33,11 @@ class Params {
     this.gridSize = 30;
     this.gridDivisions = 80;
     this.withHelpers = true;
+
+    // Plane params
+    this.withFiniteGround = false;
+    this.withPlanePad = true;
+    this.withPlaneBox = true;
   }
 
   loadShaderParams() {
@@ -65,8 +71,8 @@ class Params {
 
       // 🌧️ Add new uniform for weather effect toggle
       climateCondition: { value: 0.0 },
-      musicUniforms: {value: this.musicUniforms},
-      interactiveUniforms: {value: this.interactiveUniforms},
+      musicUniforms: { value: this.musicUniforms },
+      interactiveUniforms: { value: this.interactiveUniforms },
     }
 
     // Music And Frequency
@@ -77,7 +83,7 @@ class Params {
       u_perlinScale: { value: new THREE.Vector2(50.0, 20000.0) }, // Frequency scale for Perlin noise (50Hz to 20,000Hz)
     }
 
-      // Interactions
+    // Interactions
     this.interactiveUniforms = {
       hovered: { value: this.hovered },
       shapeFactor: { value: this.shapeFactor },

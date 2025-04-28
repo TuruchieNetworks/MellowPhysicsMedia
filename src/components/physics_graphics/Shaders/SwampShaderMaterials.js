@@ -215,11 +215,10 @@ export class SwampShaderMaterials {
           // UV Mapping
           vec2 fragCoord = gl_FragCoord.xy;
           vec2 uv = fragCoord / resolution; // Proper UV mapping
-          // uv.x *= resolution.x / resolution.y;
+          uv.x *= resolution.x / resolution.y;
 
           // Normalize Mouse normalized to same space (assuming it's passed in already as [0, res])
           vec2 mouse = (mousePosition * 2.0 - 1.0); // Convert to [-1, 1] range
-          // vec2 mouseUV = mousePosition / resolution;
 
           vec3 clouds = burningClouds(uv);
           vec3 color = vec3(clouds);
@@ -229,17 +228,16 @@ export class SwampShaderMaterials {
             // Mouse is hovering, apply mouse interaction effects
             float dist = distance(mouse, uv);
             float absT =  abs(sin(time));
-            // dist +=  absT;
-            
+            dist +=  absT;
             
             // Use the distance to influence the color (make mouse position cause a color shift)
-            color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Makes the area closer to the mouse lighter (for visible effect)
+            // color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Makes the area closer to the mouse lighter (for visible effect)
             
             // Use distance to control the opacity
             float opacity = smoothstep(0.0, 0.5, dist); // Opacity decreases with distance from the mouse position
             
             // Optionally, add time-based animation for extra dynamics
-            color += 0.5 + 0.5 * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and time
+            color /= 0.5 + 0.5 * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and time
         
             gl_FragColor = vec4(color, opacity);
           } else {
@@ -247,7 +245,7 @@ export class SwampShaderMaterials {
             float dist = distance(uv, vec2(0.5, 0.5)); // Default base distance, could be replaced with your original calculation
 
             color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Use original UV-distance-based coloring
-            color = vec3(pkwy);
+            color = vec3(clouds);
             color *= 0.5 + 0.5 * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and time
             float opacity = smoothstep(0.6, 0.8, 1.0);
             gl_FragColor = vec4(color, opacity); // Default behavior

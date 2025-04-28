@@ -16,7 +16,7 @@ import PhysicsEngine from '../SceneUtilities/PhysicsEngine';
 import Particles from '../SceneUtilities/Particles';
 import Params from '../SceneUtilities/Params';
 
-const FloatingCities = ({ width = window.innerWidth, height = window.innerHeight, particleCount = 140}) => {
+const FloatingCities = ({ currentTrack, isPlaying, trackIndex,  width = window.innerWidth, height = window.innerHeight, particleCount = 140}) => {
   const sceneRef = useRef(new THREE.Scene());
   const worldRef = useRef(new CANNON.World());
   const canvasRef = useRef();
@@ -79,16 +79,27 @@ const FloatingCities = ({ width = window.innerWidth, height = window.innerHeight
     // Plane and Ground Physics
     const gaussianDistribution = new GaussianDistribution();
     const physics = new PhysicsEngine(mouseUtils, shaderManager);
-    const planeManager = new PlaneManager(scene, world, params.boundary * 1.25, params.boundary * 1.25, params.thickness, THREE.DoubleSide, shaderManager, texturedShaderMaterial, params.withFiniteGround, params.withPlanePad, params.withPlaneBox);
+    const planeManager = new PlaneManager(scene, world, params.midBoundary, params.midBoundary, params.thickness, THREE.DoubleSide, shaderManager, texturedShaderMaterial, params.withFiniteGround, params.withPlanePad, params.withPlaneBox);
     planeManager.createExplosivePlane();
 
+    // Define the keys in the same order as face names
+    const faces = {
+      top: shaderManager.wiredCityTerrainSDFShader,
+      bottom: shaderManager.wiredCityTerrainSDFShader,
+      left: shaderManager.tubeCityShader,
+      right: shaderManager.ceasarsShader,
+      front: shaderManager.purpleStormShader,
+      back: shaderManager.terrestialDragonShader,
+    }
+
     const geoUtils = new GeoUtils(scene, world, textureLoader, gltfLoader, textureManager, shaderManager, imageUtils);
+    geoUtils.createMultifacedBoundaryBox(params.midBoundary, faces, 0.0);
     geoUtils.createBasicBox();
     geoUtils.createMultiBox();
     geoUtils.createGLTFModel();
-    // geoUtils.create3DBoxObject();
-    sceneMeshesRef.current.push(geoUtils.basicBox, geoUtils.multiBox);
-    const sphereUtils = new SphereUtils(scene, world, textureLoader, texturedMaterials, mouseUtils, imageUtils, shaderManager, physics, gaussianDistribution, shaderManager.wrinkledCoalMaterial, sceneMeshesRef.current);
+
+    sceneMeshesRef.current.push(geoUtils.basicBoxObj, geoUtils.multiBoxObj);
+    const sphereUtils = new SphereUtils(scene, world, textureLoader, texturedMaterials, mouseUtils, imageUtils, shaderManager, physics, gaussianDistribution, shaderManager.wrinkledCoalMaterial, sceneMeshesRef.current, geoUtils.boundaryObj);
 
     // Step 5: Create sand particles with assigned material and interaction properties
     const particles = new Particles(scene, world, shaderManager, mouseUtils, textureLoader, texturedMaterials, shaderManager.flyingTerrainMaterial, particleCount);
@@ -103,8 +114,11 @@ const FloatingCities = ({ width = window.innerWidth, height = window.innerHeight
       world.step(params.deltaTime);
 
       // Update Camera
-      light.update();
-      geoUtils.update();
+      // if (isPlaying) {
+        light.update();
+      // }
+
+      // geoUtils.update();
       sphereUtils.update();
       shaderManager.update();
       particles.updateParticles();
@@ -126,9 +140,19 @@ const FloatingCities = ({ width = window.innerWidth, height = window.innerHeight
 
     // Handle window resizing
     const handleResize = () => {
+      light.dispose();
+      renderer.dispose();
+      geoUtils.dispose();
+      particles.dispose();
+      sphereUtils.dispose();
+      planeManager.dispose();
+
       const width = window.innerWidth;
       const height = window.innerHeight;
       renderer.setSize(width, height);
+
+      // Also trigger shaderManager or implementers to update resolution
+      shaderManager.handleResize(width, height); // ✅ if you have it setup that way
     };
 
     window.addEventListener('resize', handleResize);
@@ -143,13 +167,18 @@ const FloatingCities = ({ width = window.innerWidth, height = window.innerHeight
       sphereUtils.dispose();
       planeManager.dispose();
     };
-  }, [width, height, particleCount, randomHexColor]);
+  }, [width, height, particleCount, randomHexColor, currentTrack, isPlaying, trackIndex]);
 
-  return <canvas ref={canvasRef} />
+  return <canvas ref={canvasRef} style={{width: '100vw', height: '100vh',}} />
+};
+
+export default FloatingCities;
+
+
+
+
+
     // className="party-lights" 
     // style={{
     //   margin: '-5px 0px',
     // }} />;
-};
-
-export default FloatingCities;

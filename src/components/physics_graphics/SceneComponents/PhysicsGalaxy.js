@@ -16,7 +16,7 @@ import PhysicsEngine from '../SceneUtilities/PhysicsEngine';
 import Particles from '../SceneUtilities/Particles';
 import Params from '../SceneUtilities/Params';
 
-const PhysicsGalaxy = ({ videos = [], width = window.innerWidth, height = window.innerHeight, particleCount = 100}) => {
+const PhysicsGalaxy = ({width = window.innerWidth, height = window.innerHeight, particleCount = 100}) => {
   const sceneRef = useRef(new THREE.Scene());
   const worldRef = useRef(new CANNON.World());
   const canvasRef = useRef();
@@ -32,7 +32,7 @@ const PhysicsGalaxy = ({ videos = [], width = window.innerWidth, height = window
     // Set up camera
     cameraRef.current = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     const camera = cameraRef.current;
-    camera.position.set(-5, 0.30, 30);
+    camera.position.set(-5, 0.30, -30);
 
     // Set up renderer
     renderRef.current = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true });
@@ -82,13 +82,27 @@ const PhysicsGalaxy = ({ videos = [], width = window.innerWidth, height = window
     const planeManager = new PlaneManager(scene, world, params.boundary, params.boundary, params.thickness, THREE.DoubleSide, shaderManager, texturedShaderMaterial, params.withFiniteGround, params.withPlanePad, params.withPlaneBox);
     planeManager.createExplosivePlane();
 
+    // Define the keys in the same order as face names
+    const faces = {
+      top: shaderManager.wiredCityTerrainSDFShader,
+      bottom: shaderManager.wiredCityTerrainSDFShader,
+      left: shaderManager.tubeCityShader,
+      right: shaderManager.ceasarsShader,
+      front: shaderManager.purpleStormShader,
+      back: shaderManager.terrestialDragonShader,
+    };
+
+    /*
+    //atlanticFlowerShader,//atlanticGutterShader,//milkyWaterFallShader,//purpleStormShader, 
+    */
     const geoUtils = new GeoUtils(scene, world, textureLoader, gltfLoader, textureManager, shaderManager, imageUtils);
+    geoUtils.createMultifacedBoundaryBox(params.boundary, faces, 0.0);
     geoUtils.createBasicBox();
     geoUtils.createMultiBox();
     geoUtils.createGLTFModel();
-    // geoUtils.create3DBoxObject();
-    sceneMeshesRef.current.push(geoUtils.basicBox, geoUtils.multiBox);
-    const sphereUtils = new SphereUtils(scene, world, textureLoader, texturedMaterials, mouseUtils, imageUtils, shaderManager, physics, gaussianDistribution, shaderManager.wrinkledCoalMaterial, sceneMeshesRef.current);
+
+    sceneMeshesRef.current.push(geoUtils.basicBoxObj, geoUtils.multiBoxObj);
+    const sphereUtils = new SphereUtils(scene, world, textureLoader, texturedMaterials, mouseUtils, imageUtils, shaderManager, physics, gaussianDistribution, shaderManager.wrinkledCoalMaterial, sceneMeshesRef.current, geoUtils.boundaryObj);
 
     // Step 5: Create sand particles with assigned material and interaction properties
     const particles = new Particles(scene, world, shaderManager, mouseUtils, textureLoader, texturedMaterials, noiseMaterial, particleCount);
@@ -129,6 +143,9 @@ const PhysicsGalaxy = ({ videos = [], width = window.innerWidth, height = window
       const width = window.innerWidth;
       const height = window.innerHeight;
       renderer.setSize(width, height);
+
+      // Also trigger shaderManager or implementers to update resolution
+      shaderManager.handleResize(width, height); // ✅ if you have it setup that way
     };
 
     window.addEventListener('resize', handleResize);
@@ -146,10 +163,6 @@ const PhysicsGalaxy = ({ videos = [], width = window.innerWidth, height = window
   }, [width, height, particleCount, randomHexColor]);
 
   return <canvas ref={canvasRef} />
-    // className="party-lights" 
-    // style={{
-    //   margin: '-5px 0px',
-    // }} />;
 };
 
 export default PhysicsGalaxy;

@@ -6,7 +6,7 @@ import useUIUtils from './useUIUtils';
 import useTrackInfo from './useTrackInfo';
 import useUIEvents from './useUIEvents';
 
-const useAudioPlayer = ({ seekSliderRef, volumeRef }) => {
+const useAudioPlayer = () => {
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -30,6 +30,7 @@ const useAudioPlayer = ({ seekSliderRef, volumeRef }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRandom, setIsRandom] = useState(false);
   const [randomIndex, setRandomIndex] = useState(0);
+  const [playerParams, setPlayerParams] = useState(null);
   const musicUtils = new MusicUtils();
   const musicList = musicUtils.getMusicList();
   const [user, setUser] = useState(null);
@@ -102,6 +103,7 @@ const useAudioPlayer = ({ seekSliderRef, volumeRef }) => {
     updateCurrentTrack(currentTrack, setTotalDuration, setCurrentTime, setRemainingDuration);
 
     // setUpdateTimer(setInterval(setUpdate, 1000));
+    setPlayerParams(playerParameters());
     currentTrack.addEventListener('ended', nextTrack);
   }
 
@@ -244,9 +246,37 @@ const useAudioPlayer = ({ seekSliderRef, volumeRef }) => {
     }
   };
 
+  const playerParameters = () => {
+    return {
+      playerParams,
+      musicList,
+      isMuted,
+      isRandom,
+      isRepeat,
+      isPlaying,
+      seekSlider,
+      trackIndex,
+      currentTime,
+      volumeSlider,
+      totalDuration,
+      remainingDuration,
+      seekTo,
+      setVolume,
+      stopTrack,
+      nextTrack,
+      prevTrack,
+      toggleMute,
+      repeatTrack,
+      randomTrack,
+      setSeekSlider,
+      playpauseTrack,
+      setVolumeSlider
+    }
+  }
   return (
     {
       musicList,
+      currentTrack,
       trackIndex,
       nowPlaying,
       isPlaying,

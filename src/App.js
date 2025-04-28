@@ -8,11 +8,6 @@ import Services from './components/auth/Services';
 import Merchandise from './components/auth/Merchandise';
 import Music from './components/auth/Music';
 import './App.css';
-// import BouncingSpheres from './components/physics_graphics/SceneComponents/BouncingSpheres';
-// import PhysicsAnimations from './components/physics_graphics/SceneComponents/PhysicsAnimations';
-// import { LoadedModels } from './components/loaded_models/LoadedModelTextures';
-// import { SpinningBox } from './components/loaded_models/LoadedModelTextures';
-
 
 function App() {
   return ( 
@@ -26,10 +21,6 @@ function App() {
         <Route exact path='/Contact' element={ <Contact /> } />
         <Route exact path='/Services' element={ <Services /> } />
         <Route exact path='/Merchandise' element={ <Merchandise /> } />
-        {/* <Route exact path='/LoadedModels' element={ <LoadedModels /> } /> */}
-        {/* <Route exact path='/BouncingSpheres' element={ <BouncingSpheres /> } /> */}
-        {/* <Route exact path='/PhysicsAnimations' element={ <PhysicsAnimations /> } /> */}
-        {/* <Route exact path='/SpinningBox' element={ <SpinningBox /> } /> */}
       </Routes>
     </div>
   );

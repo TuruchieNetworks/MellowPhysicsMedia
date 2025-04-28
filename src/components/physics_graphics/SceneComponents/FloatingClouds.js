@@ -16,7 +16,7 @@ import PhysicsEngine from '../SceneUtilities/PhysicsEngine';
 import Particles from '../SceneUtilities/Particles';
 import Params from '../SceneUtilities/Params';
 
-const FloatingClouds = ({width = window.innerWidth, height = window.innerHeight, particleCount = 140}) => {
+const FloatingClouds = ({currentTrack, isPlaying, trackIndex, width = window.innerWidth, height = window.innerHeight, particleCount = 140}) => {
  
   const sceneRef = useRef(new THREE.Scene());
   const worldRef = useRef(new CANNON.World());
@@ -60,7 +60,6 @@ const FloatingClouds = ({width = window.innerWidth, height = window.innerHeight,
     // 🎥 Load Textures and Materials
     const textureManager = new TexturesManager(imageUtils, textureLoader, imageUtils.images.concerts);
     const texturedMaterials = textureManager.texturedMaterials;
-    // const randomTexturedMaterial = textureManager.randomTexturedMaterial;
 
     // 🎭 Shader Management
     const shaderManager = new ShaderManager(params, mouse);
@@ -80,16 +79,37 @@ const FloatingClouds = ({width = window.innerWidth, height = window.innerHeight,
     // Plane and Ground Physics
     const gaussianDistribution = new GaussianDistribution();
     const physics = new PhysicsEngine(mouseUtils, shaderManager);
-    const planeManager = new PlaneManager(scene, world, params.boundary + (params.boundary / 2), params.boundary + (params.boundary / 2), params.thickness, THREE.DoubleSide, shaderManager, texturedShaderMaterial, params.withFiniteGround, params.withPlanePad, params.withPlaneBox);
+    const planeManager = new PlaneManager(scene, world, params.midBoundary, params.midBoundary, params.thickness, THREE.DoubleSide, shaderManager, texturedShaderMaterial, params.withFiniteGround, params.withPlanePad, params.withPlaneBox);
     planeManager.createExplosivePlane();
 
+    const faces = {
+      top: shaderManager.wiredCityTerrainSDFShader,
+      bottom: shaderManager.wiredCityTerrainSDFShader,
+      left: shaderManager.tubeCityShader,
+      right: shaderManager.ceasarsShader, 
+      front: shaderManager.milkyWaterFallShader, 
+      back: shaderManager.terrestialDragonShader,
+    }
+
+    /* 
+    //purpleStormShader,
+    // skylineManager.glassSkylineShshaders.
+    //terrestialMosaicShader//terrestialDragonShader, 
+    //.purpleWindyShader, //landScapeManager.landScapeShader, 
+    // front: shaderManager.lucentManager.blendedLucentShader,
+    //sandyPlainManager.dancingCreatureShader,//sandGalaxyMaterial,
+    // dragonCityManager.flyingDragonTerrainShader, //dragonCityTerrainShader, 
+    //terrestialManager.terrestialDragonShader,//lucentManager.blendedLucentShader,
+    //dragonCityManager.dragonCityTerrainShader, //lucentManager.blendedLucentShader, 
+    */
     const geoUtils = new GeoUtils(scene, world, textureLoader, gltfLoader, textureManager, shaderManager, imageUtils);
+    geoUtils.createMultifacedBoundaryBox(params.midBoundary, faces, 0.0);
     geoUtils.createBasicBox();
     geoUtils.createMultiBox();
     geoUtils.createGLTFModel();
-    geoUtils.createMultifacedBoundaryBox(params.boundary + (params.boundary / 2), 0);
-    sceneMeshesRef.current.push(geoUtils.basicBox, geoUtils.multiBox);
-    const sphereUtils = new SphereUtils(scene, world, textureLoader, texturedMaterials, mouseUtils, imageUtils, shaderManager, physics, gaussianDistribution, shaderManager.wrinkledCoalMaterial, sceneMeshesRef.current);
+
+    sceneMeshesRef.current.push(geoUtils.basicBoxObj, geoUtils.multiBoxObj);
+    const sphereUtils = new SphereUtils(scene, world, textureLoader, texturedMaterials, mouseUtils, imageUtils, shaderManager, physics, gaussianDistribution, shaderManager.wrinkledCoalMaterial, sceneMeshesRef.current, geoUtils.boundaryObj);
 
     // Step 5: Create sand particles with assigned material and interaction properties
     const particles = new Particles(scene, world, shaderManager, mouseUtils, textureLoader, texturedMaterials, noiseMaterial, particleCount);
@@ -105,7 +125,6 @@ const FloatingClouds = ({width = window.innerWidth, height = window.innerHeight,
 
       // Update Scene Elements
       light.update()
-      geoUtils.update();
       sphereUtils.update();
       shaderManager.update();
       particles.updateParticles();
@@ -127,10 +146,19 @@ const FloatingClouds = ({width = window.innerWidth, height = window.innerHeight,
 
     // Handle window resizing
     const handleResize = () => {
+      light.dispose();
+      renderer.dispose();
+      geoUtils.dispose();
+      particles.dispose();
+      sphereUtils.dispose();
+      planeManager.dispose();
+
       const width = window.innerWidth;
       const height = window.innerHeight;
       renderer.setSize(width, height);
-      // noiseShader.uniforms.resolution.value.set(width, height); // Update shader resolution
+
+      // Also trigger shaderManager or implementers to update resolution
+      shaderManager.handleResize(width, height); // ✅ if you have it setup that way
     };
 
     window.addEventListener('resize', handleResize);
@@ -152,7 +180,7 @@ const FloatingClouds = ({width = window.innerWidth, height = window.innerHeight,
       sphereUtils.dispose();
       planeManager.dispose();
     };
-  }, [width, height, particleCount, randomHexColor]);
+  }, [width, height, particleCount, randomHexColor, currentTrack, isPlaying, trackIndex]);
 
   return <canvas ref={canvasRef} />
     // className="party-lights" 

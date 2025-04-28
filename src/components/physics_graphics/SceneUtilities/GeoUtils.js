@@ -213,7 +213,7 @@ class GeoUtils {
   }
   
   // Wired Box Boundary 
-  createWiredBoundaryBox(boundary, mass = 0, shader = this.shader.terrainManager.wiredCityTerrainShader) {
+  createWiredBoundaryBox(boundary, shader = this.shader.terrainManager.wiredCityTerrainShader, mass = 0) {
     const geo = new THREE.BoxGeometry(boundary, boundary, boundary);
     const mat = new THREE.ShaderMaterial({
       uniforms: shader.uniforms,
@@ -236,14 +236,29 @@ class GeoUtils {
     this.wiredBoundaryObj = {mesh: this.multifacedBoundaryBox, mass};
   }
 
-  createMultifacedBoundaryBox(boundary, mass = 0, {
+    /*   Shader Boundary Box 
+    Sample Shader Faces
+    fronts
+      mangroveManager.mangroveSwampShader, mangroveSwampShader,
+      tropicalRainForestShaderlakeManager.blueHavenShader, bugManager.metalBugShader,  
+      dragonCityManager.dragonCityTerrainShader, dragonCityManager.dragonCityTerrainShader, 
+      lakeManager.giantRipplesShader,parkCityManager.electricCloudShader, fortressMansionShader, 
+      landScapeManager.landScapeShader, sandyPlainManager.dancingCreatureShader,sandGalaxyMaterial, 
+      lucentManager.blendedLucentShader, dragonCityManager.flyingDragonTerrainShader, dragonCityTerrainShader, 
+      terrestialManager.terrestialDragonShader, dragonCityManager.dragonCityTerrainShader,
+    backs: 
+      terrestialMosaicShader, terrestialDragonShader, lucentManager.blendedLucentShader,
+    rights: 
+      skylineManager.glassSkylineShshaders,front = this.shader.lucentManager.blendedLucentShader,
+      */
+  createMultifacedBoundaryBox(boundary, {
     top = this.shader.terrainManager.wiredCityTerrainSDFShader,
     bottom = this.shader.terrainManager.wiredCityTerrainSDFShader,
     left = this.shader.tunnelManager.tubeCityShader,
-    right = this.shader.skylineManager.ceasarsShader, // skylineManager.glassSkylineShshaders.// front = this.shader.lucentManager.blendedLucentShader,
-    front = this.shader.mangroveManager.mangroveSwampShader, // mangroveSwampShader, //dragonCityManager.dragonCityTerrainShader,// tropicalRainForestShaderlakeManager.blueHavenShader, // bugManager.metalBugShader, // dragonCityManager.dragonCityTerrainShader, // ldragonCityManager.dragonCityTerrainShader, // lakeManager.giantRipplesShader,//parkCityManager.electricCloudShader, //fortressMansionShader, //landScapeManager.landScapeShader, //sandyPlainManager.dancingCreatureShader,//sandGalaxyMaterial,// //lucentManager.blendedLucentShader, // dragonCityManager.flyingDragonTerrainShader, //dragonCityTerrainShader, //terrestialManager.terrestialDragonShader,
-    back = this.shader.terrestialManager.terrestialDragonShader,//terrestialMosaicShader//terrestialDragonShader, //lucentManager.blendedLucentShader,
-  } = {}){
+    right = this.shader.skylineManager.ceasarsShader, 
+    front = this.shader.mangroveManager.mangroveSwampShader,
+    back = this.shader.terrestialManager.terrestialDragonShader,
+  } = {}, mass = 0){
     // Ensure shaders exist before applying
     if (!this.shader) {
       console.error("Shader manager not initialized!");
@@ -442,6 +457,5 @@ class GeoUtils {
     this.geo3DObjBoxMeshes = [];
     this.geo3DObjBoxBodies = [];
   }  
-
 }
 export default GeoUtils;

@@ -1,35 +1,33 @@
 import React, { useRef } from 'react';
-import useAudioPlayer from '../hooks/useAudioPlayer';
 
-const AudioPlayer = ({idx, images}) => {
+const AudioPlayer = ({
+  idx, 
+  images,
+  musicList,
+  isMuted,
+  isRandom,
+  isRepeat,
+  isPlaying,
+  seekSlider,
+  trackIndex,
+  currentTime,
+  volumeSlider,
+  totalDuration,
+  remainingDuration,
+  seekTo,
+  setVolume,
+  stopTrack,
+  nextTrack,
+  prevTrack,
+  toggleMute,
+  repeatTrack,
+  randomTrack,
+  setSeekSlider,
+  playpauseTrack,
+  setVolumeSlider}) => {
   // Refs for seek slider and volume slider
   const volumeRef = useRef(null);
   const seekSliderRef = useRef(null);
-
-  const {
-    musicList,
-    isMuted,
-    isRandom,
-    isRepeat,
-    isPlaying,
-    seekSlider,
-    trackIndex,
-    currentTime,
-    volumeSlider,
-    totalDuration,
-    remainingDuration,
-    seekTo,
-    setVolume,
-    stopTrack,
-    nextTrack,
-    prevTrack,
-    toggleMute,
-    repeatTrack,
-    randomTrack,
-    setSeekSlider,
-    playpauseTrack,
-    setVolumeSlider
-  } = useAudioPlayer(seekSliderRef, volumeRef);
 
   return (
     <div className="shadow-container">

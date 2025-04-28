@@ -11,8 +11,34 @@ import FloatingTerrains from '../physics_graphics/SceneComponents/FloatingTerrai
 import VideoScene from '../backgroundVideos/VideoScene';
 import BioCarousel from '../layout/BioCarousel';
 import FloatingClouds from '../physics_graphics/SceneComponents/FloatingClouds';
+import useAudioPlayer from '../hooks/useAudioPlayer';
 
 const Services = () => {
+    const {
+        currentTrack,
+        musicList,
+        isMuted,
+        isRandom,
+        isRepeat,
+        isPlaying,
+        seekSlider,
+        trackIndex,
+        currentTime,
+        volumeSlider,
+        totalDuration,
+        remainingDuration,
+        seekTo,
+        setVolume,
+        stopTrack,
+        nextTrack,
+        prevTrack,
+        toggleMute,
+        repeatTrack,
+        randomTrack,
+        setSeekSlider,
+        playpauseTrack,
+        setVolumeSlider
+    } = useAudioPlayer();
     const musicUtils = new MusicUtils();
     const imageUtilities = new ImageUtils();
     const { videoRef } = UseVideoBackground();
@@ -29,7 +55,7 @@ const Services = () => {
                 transition: 'background-image 0.5s ease-in-out',
             }}
         >
-            <FloatingClouds />
+            <FloatingClouds currentTrack={currentTrack} isPlaying={isPlaying} trackIndex={trackIndex} />
             <div
                 style={{
                     backgroundImage: `url(${images[idx]})`,
@@ -52,12 +78,37 @@ const Services = () => {
                         backgroundPosition: 'center',
                         transition: 'background-image 0.5s ease-in-out',
                     }}>
-                    <FloatingTerrains />
+                    <FloatingTerrains currentTrack={currentTrack} isPlaying={isPlaying} trackIndex={trackIndex} />
                 </div>
                 <BackgroundCarousel idx={idx} handleNext={handleNext} handlePrev={handlePrev} images={images} />
                 <div className="container">
                     <div className='player-container'>
-                        <AudioPlayer idx={idx} images={images} />
+                        <AudioPlayer 
+                            idx={idx} 
+                            images={images}
+                            musicList={musicList}
+                            isMuted={isMuted}
+                            isRandom={isRandom}
+                            isRepeat={isRepeat}
+                            isPlaying={isPlaying}
+                            seekSlider={seekSlider}
+                            trackIndex={trackIndex}
+                            currentTime={currentTime}
+                            volumeSlider={volumeSlider}
+                            totalDuration={totalDuration}
+                            remainingDuration={remainingDuration}
+                            seekTo={seekTo}
+                            setVolume={setVolume}
+                            stopTrack={stopTrack}
+                            nextTrack={nextTrack}
+                            prevTrack={prevTrack}
+                            toggleMute={toggleMute}
+                            repeatTrack={repeatTrack}
+                            randomTrack={randomTrack}
+                            setSeekSlider={setSeekSlider}
+                            playpauseTrack={playpauseTrack}
+                            setVolumeSlider={setVolumeSlider}
+                        />
                     </div>
                 </div>
             </div>

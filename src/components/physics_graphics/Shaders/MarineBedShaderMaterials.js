@@ -1,8 +1,7 @@
 import * as THREE from 'three';
 
-export class SavannahShaderMaterials {
-  constructor(params,
-    mouse) {
+export class MarienBedShaderMaterials {
+  constructor(params, mouse) {
     this.params = params;
     this.width = this.params.width ?? window.innerWidth;
     this.height = this.params.height ?? window.innerHeight;
@@ -22,16 +21,16 @@ export class SavannahShaderMaterials {
     this.mouse = mouse;
     this.mousePosition = this.mouse;
 
-    this.usePurpleVanillaShader();
-    this.useSavannahGrassShader();
-    this.useWhiteSavanahShader();
+    this.useMarineSnakesShader();
+    this.useMarineBedShader();
+    this.useMarineMillWorkShader()
 
     this.updateEvents();
     this.getShaders();
   }
 
-  useSavannahGrassShader() {
-    this.savannahGrassShader = {
+  useMarineBedShader() {
+    this.marineBedShader = {
       uniforms: {
         hovered: { value: this.hovered },
         sineTime: { value: this.sineTime },
@@ -40,9 +39,13 @@ export class SavannahShaderMaterials {
         mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
         resolution: { value: new THREE.Vector2(this.width, this.height) },
+        u_velocity: { value: this.params.customShaderUniforms.u_velocity }, 
+        u_rippleTime: { value: this.params.customShaderUniforms.u_rippleTime }, 
+        u_rippleOrigin: { value: this.params.customShaderUniforms.u_rippleOrigin }, 
+        u_terrainElevation: { value: this.params.customShaderUniforms.u_terrainElevation }, 
 
         // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
-        customUniforms: { value: this.params.customShaderUniforms }, 
+        climateCondition: { value: this.params.customShaderUniforms.climateCondition }, 
       },
 
       vertexShader: `
@@ -91,18 +94,18 @@ export class SavannahShaderMaterials {
         
         varying vec2 vUv;
         uniform float time;
-        uniform float sineTime;
         uniform float hovered;
         uniform float shapeFactor;
         uniform vec2 mousePosition;
         uniform vec2 resolution;
-        uniform float climateCondition;
         uniform float explodeIntensity;
+        uniform float sineTime;
 
         #define MAX_STEPS 100
         #define MAX_DIST 100.0
         #define SURF_DIST 0.001
-        
+
+     
         // === Fractal Hill Pattern ===
         float fractalHill(float t) {
           float total = 0.0;
@@ -128,9 +131,39 @@ export class SavannahShaderMaterials {
         float getHeight(float t) {
           return fractalHill(t); // fractal height
         }
+
+        float sdCylinder(vec3 p, float h, float r) {
+          vec2 d = abs(vec2(length(p.xz), p.y)) - vec2(r, h * 0.5);
+          return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+        }
         
         float ripples(float t) {
           return 0.5 + 0.5 * sin(t * 2.0 * 3.14159); // repeats every 1.0
+        }
+        
+        vec3 dimensions(vec2 u) {
+          vec2 pos = vec2(0.5)-u;
+          vec3 p = vec3(pos, -9.0+time);
+          float dx = distance(p.x, 0.0);
+          float dy = distance(p.y, 0.0);
+          float dz = distance(p.z, 0.0);
+      
+          float r = length(pos)*2.0; 
+          float pzt = p.z*(time*0.00051);
+          float a = atan(pos.y,tan(p.z+fract(pos.x+p.z)));
+            
+          float tdy = dy*cos(0.3*atan(pzt, a)); 
+            
+          // float ap = atan(p.y,atan(dx,tan(atan(a, atan(pzt, a)) )));
+          //   a=ap-(p.z);
+        
+          float f = cos(a*3.)*sin(a*3.);
+          // f = abs(cos(a*3.));
+          f = abs(cos(a*5.5))*.5+.3-r/2.;
+          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1-r;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5; 		 
+         float s = 1.-smoothstep(f,f+0.02,r);
+          return vec3(r, a, s);
         }
         
         float hillTerrain(float t) {
@@ -140,27 +173,56 @@ export class SavannahShaderMaterials {
         vec3 getPath (vec3 startPos, vec3 endPos, float t){
           return mix(startPos, endPos, hillTerrain(t)); // rises, then falls
         }
-        
-        float linearTerrainSDF(vec3 p) {
-          // simulate terrain along X
-          float h = fractalHill(p.x+time);
-          return p.y - h; // above = positive, below = negative
-        }
-        
-        // 3D terrain SDF
-        float terrainSDF(vec3 p) {
-          float h = terrainHeight(p.xz);
-          return p.y - h;
-        }
-        
+     
         float terrainVolumeSDF(vec3 p) {
           float h = terrainHeight(p.xz); // 2D hill over XZ
           return p.y - h;
         }
-        
+
+        float treeSDF(vec3 p) {
+          p.z -= time;
+          p =fract(p);
+          // Distribute trees periodically over terrain
+          vec2 cell = floor(p.xz * 2.0); // spacing
+          vec3 pos = p - vec3(cell.x + 0.5, 0.0 , cell.y + 0.5);
+          pos.y -= terrainHeight(cell + 0.5); // offset by terrain
+
+          float trunk = sdCylinder(pos,  0.5, .05); // trunk
+          return trunk;
+        }
+
+        float foliageSDF(vec3 p, vec3 base, float rnd) {
+          float foliageHeight = 0.2 + 0.1 * fract(rnd * 60.0);
+          vec3 canopyCenter = base + vec3(0.0, foliageHeight, 0.0);
+          // vec3 q = fract(p)-0.5;
+          return length(p - canopyCenter) - 0.15; // sphere canopy
+        }
+
+        float linearTerrainSDF(vec3 p) {
+          // simulate terrain along X
+          float h = fractalHill(p.y+(time*0.21)+ terrainVolumeSDF((p)));// Atlantic Deltas
+            
+          float r = ripples(h);
+          h = fractalHill(p.y+(time*0.21)+ terrainVolumeSDF((p)));// Atlantic Deltas
+          // float h = fractalHill(p.y+(time*0.1)+ treeSDF(fract(1.-p)));
+          // h=r;
+          return p.y - h; // above = positive, below = negative
+        }
+
+        float forestSDF(vec3 p) {
+          float terrain = terrainVolumeSDF(p);
+          float tree = treeSDF(p);
+          float h = fractalHill(p.y+(time*0.21)+ terrainVolumeSDF((p)));// Atlantic Deltas
+          float foliage = min(foliageSDF(p, (vec3(tree)), terrain), tree+h);
+          // foliage = min(foliageSDF(p, -log(p), terrain), tree);
+          return min((terrain, tree+h), foliage);
+          // return min(min(terrain, tree), foliage);
+          // return min((terrain, tree), foliage);
+        }
+
         // Estimate normal from SDF
         vec3 computeNormal(vec3 p) {
-          float d = terrainVolumeSDF(p);
+          float d = terrainVolumeSDF(p)+forestSDF(p);
           vec2 e = vec2(0.001, 0.0);
           return normalize(vec3(
             terrainVolumeSDF(p + e.xyy) - d,
@@ -198,39 +260,44 @@ export class SavannahShaderMaterials {
           float depthFactor = 0.064;
           float t = 0.0; // Total Distance Travelled By Ray
           vec3 depthGreyValue = vec3(t);
-          vec3 p; // declared outside loop so it's accessible after
+          vec3 p; // declared outside loop so it's accessible after 
+          float ripple;
           float d = 0.0;
-          vec3 pth = getPath(ro, rd, t) ;
+          vec3 path = getPath(ro, rd, t) ;
           
           for (int i = 0; i < 80; i++) {
             p = ro + rd * t;
-            float d = terrainVolumeSDF(p)* linearTerrainSDF(p+pth);// LandScape;
-            d = terrainVolumeSDF(p)+ linearTerrainSDF(p+pth);// Coniferous Forests
-            d = terrainVolumeSDF(p)* linearTerrainSDF(p+pth)+hillTerrain(p.y); // Riparian Forest 
-            d = terrainVolumeSDF(p)* linearTerrainSDF(p+pth)+hillTerrain(p.z); //Snow Grassland
-            // d = (terrainVolumeSDF(p)+ linearTerrainSDF(p+pth)+hillTerrain(p.z)); // Plain Field
+            float d = terrainVolumeSDF(p)* linearTerrainSDF(p+path);// LandScape;
+            d = terrainVolumeSDF(p)+ linearTerrainSDF(p+path);// Coniferous Forests
+            // d = terrainVolumeSDF(p)* linearTerrainSDF(p+path)+hillTerrain(p.y); // Riparian Forest 
+            // d = getPath(ro, rd, p.x).y;
+            d += linearTerrainSDF(p +path)+treeSDF(p); 
+            d = forestSDF(p);
+            // d = treeSDF(p);
+            d/=forestSDF(p+path)+forestSDF(p)+linearTerrainSDF(p+path);// MillworkOceanBed
+            // d /= terrainVolumeSDF(p)+ linearTerrainSDF(p+path); //Snow Grassland
+            // d /= (terrainVolumeSDF(p)+ linearTerrainSDF(p+path)+hillTerrain(p.z)); // Plain Field
             if (d < 0.001 || t > 100.0) break;
         
             t += d;
             depthGreyValue = vec3(i) / 80.0;
           }
         
-          float ray = t * 0.2 * depthFactor;
-          float rpl = ripples(ray*sin(time+0.7));
+          float ray = t * 0.912 * depthFactor;
+          ripple = ripples(ray*sin(time+0.7));
           
           // 🌿 Base shading — default grass tint
-          vec3 color = depthGreyValue * vec3(0.6, 0.85, 0.4);
+          vec3 color = depthGreyValue * vec3(0.6, .85, 0.4);
           vec3 landScape = terrainColor(p, t);
-          color = depthGreyValue * landScape;
-          vec3 cloudyLandScape = terrainColor(p, t*rpl);
-          vec3 foggyLandScape = terrainColor(p, t/rpl);
-          color = depthGreyValue * landScape;
-          color = depthGreyValue / cloudyLandScape;// Wind AND 
+          // color = depthGreyValue * landScape;
+          // vec3 cloudyLandScape = terrainColor(p, t*ripple);
+          // vec3 foggyLandScape = terrainColor(p, t/ripple);
+          // color = depthGreyValue * landScape;
+          // color = depthGreyValue / cloudyLandScape;// Wind AND 
           // color = depthGreyValue * foggyLandScape; // FloodedDelta
           // vec3 rayColor= rayPower(p, d, t);
         
           return vec4(color, ray);
-          
         }
         
         float sdSun(vec2 u) {
@@ -239,33 +306,22 @@ export class SavannahShaderMaterials {
         }
         
         vec3 sunLight(vec2 uv) {
-            float d = sdSun(uv);  // you can vary this radius
-            float mask = 1.0 - smoothstep(0.0, 0.02, d);
-            vec3 color = mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 0.9, 1.0), sin(time * 0.25) * 0.5 + 0.5);
-            return color * mask;
+          float d = sdSun(uv);  // you can vary this radius
+          float mask = 1.0 - smoothstep(0.0, 0.02, d);
+          vec3 color = mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 0.9, 1.0), sin(time * 0.25) * 0.5 + 0.5);
+          return color * mask;
         }
-        
-        vec3 dimensions(vec2 u) {
-          vec2 p = vec2(0.5)-u;
-      
-          float r = length(p)*2.0;  // This can serve as the Sun since sdf circle need only r
-          float a = atan(p.y,p.x);
-        
-          float f = cos(a*3.);
-          // f = abs(cos(a*3.));
-          // f = abs(cos(a*2.5))*.5+.3;
-          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
-          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
-          return vec3(r, a, f);
-          }
-      
+
         void main(){
           vec2 uv = gl_FragCoord.xy/resolution.xy;
+
+          // Normalize Mouse normalized to same space (assuming it's passed in already as [0, res])
+          vec2 mouse = (mousePosition * 2.0 - 1.0); // Convert to [-1, 1] range
 
           vec3 specs = dimensions(uv);
           float r = specs.x;
           float a = specs.y;
-          float f = specs.z;
+          float v = specs.z;
           float sun = sdSun(uv);
             
           // Camera setup
@@ -275,6 +331,7 @@ export class SavannahShaderMaterials {
           vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
           vec3 up = cross(forward, right);
           vec3 rd = normalize(uv.x * right + uv.y * up + 1.5 * forward);
+            vec3 color;
         
           // March
           vec4 renderer = raymarch(ro, rd);
@@ -283,23 +340,50 @@ export class SavannahShaderMaterials {
           // vec3 p = ro + rd * dist;
         
         
-          vec3 color = vec3( 1.-smoothstep(f,f+0.02,r) );
+          // vec3 color = vec3( 1.-smoothstep(f,f+0.02,r) );
           // color *= d;
           
-          color = r-vec3(renderer.x, renderer.y, renderer.z)/sun;
-          // color = sunLight(uv);
-          // Optional: apply polar distortion
-          // color *= 0.5 + 0.5 * polarEffect;
-          gl_FragColor = vec4(color, 1.0);
+          vec3 shape = r-vec3((renderer.w-r), renderer.y, renderer.z)-renderer.z/(sun);
+          color = shape;
+          // color = sunLight(uv); 
+
+          float absT =  abs(sin(sineTime));
+          // Check if hovered is active or not
+          if (hovered > 0.0) {
+            // Mouse is hovering, apply mouse interaction effects
+            float dist = distance(mousePosition, uv);
+            float absT =  abs(sin(sineTime));
+            // dist +=  absT;
+            
+            // Use the distance to influence the color (make mouse position cause a color shift)
+            color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Makes the area closer to the mouse lighter (for visible effect)
+
+            // Use distance to control the opacity
+            float opacity = smoothstep(0.0, 0.5, dist); // Opacity decreases with distance from the mouse position
+            
+            // Optionally, add sineTime-based animation for extra dynamics
+            color *= 0.5 + (0.95) * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and time
+                
+            gl_FragColor = vec4(color, opacity);
+          } else {
+            // Mouse is not hovering, apply default effect based on UV coordinates and distance
+            float dist = distance(uv, vec2(0.5, 0.5)); // Default base distance, could be replaced with your original calculation
+            color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Use original UV-distance-bacoloring
+            color = shape; // Sliding movement 
+            color *= (0.1371+v/a)+ (0.975) * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and sineTime
+            float opacity = smoothstep(0.6, 0.8, 1.0);
+            gl_FragColor = vec4(color, opacity); // Default behavior
+          }  
+          // gl_FragColor = vec4(color, 1.0);
         }
       `
     }
 
-    this.savannahGrassMaterial = new THREE.ShaderMaterial(this.savannahGrassShader);
+    this.marineBedMaterial = new THREE.ShaderMaterial(this.marineBedShader);
   } 
 
-  usePurpleVanillaShader() {
-    this.purpleVanillaShader = {
+  useMarineSnakesShader() {
+    this.marineSnakesShader = {
       uniforms: {
         hovered: { value: this.hovered },
         sineTime: { value: this.sineTime },
@@ -308,9 +392,13 @@ export class SavannahShaderMaterials {
         mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
         resolution: { value: new THREE.Vector2(this.width, this.height) },
+        u_velocity: { value: this.params.customShaderUniforms.u_velocity }, 
+        u_rippleTime: { value: this.params.customShaderUniforms.u_rippleTime }, 
+        u_rippleOrigin: { value: this.params.customShaderUniforms.u_rippleOrigin }, 
+        u_terrainElevation: { value: this.params.customShaderUniforms.u_terrainElevation }, 
 
         // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
-        customUniforms: { value: this.params.customShaderUniforms }, 
+        climateCondition: { value: this.params.customShaderUniforms.climateCondition }, 
       },
 
       vertexShader: `
@@ -365,11 +453,11 @@ export class SavannahShaderMaterials {
         uniform vec2 resolution;
         uniform float explodeIntensity;
         uniform float sineTime;
-        
+
         #define MAX_STEPS 100
         #define MAX_DIST 100.0
         #define SURF_DIST 0.001
-        
+   
         // === Fractal Hill Pattern ===
         float fractalHill(float t) {
           float total = 0.0;
@@ -391,40 +479,43 @@ export class SavannahShaderMaterials {
           return fractalHill(posXZ.x * 0.5 + sin(posXZ.y) * 0.25);
         }
         
-        mat2 rot2D(float angle) {
-          float s = sin(angle);
-          float c = cos(angle);
-          return mat2(c, -s, s, c);
-        }
-        
-        vec3 interpolate(vec3 a, vec3 b, float t) {
-          return mix(a, b, t); // built-in linear interpolation
-          // or equivalently:
-          // return a + (b - a) * t;
-        }
-        
-        float S(float t) {
-          return t * t * (3.0 - 2.0 * t); // smootherstep or easeInOut
-        }
-        
-        vec3 smoothLerp(vec3 a, vec3 b, float t) {
-          return mix(a, b, S(t));
-        }
-        
-        float powerDrop(float t) {
-          return pow(t, 3.0); // fast drop (ease-in cubic)
-        }
-        
-        vec3 waterfall(vec3 a, vec3 b, float t) {
-          return mix(a, b, powerDrop(t));
-        }
-        
+        // Usage
         float getHeight(float t) {
           return fractalHill(t); // fractal height
+        }
+
+        float sdCylinder(vec3 p, float h, float r) {
+          vec2 d = abs(vec2(length(p.xz), p.y)) - vec2(r, h * 0.5);
+          return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
         }
         
         float ripples(float t) {
           return 0.5 + 0.5 * sin(t * 2.0 * 3.14159); // repeats every 1.0
+        }
+        
+        vec3 dimensions(vec2 u) {
+          vec2 pos = vec2(0.5)-u;
+          vec3 p = vec3(pos, -9.0+time);
+          float dx = distance(p.x, 0.0);
+          float dy = distance(p.y, 0.0);
+          float dz = distance(p.z, 0.0);
+      
+          float r = length(pos)*2.0; 
+          float pzt = p.z*(time*0.00051);
+          float a = atan(pos.y,tan(p.z+fract(pos.x+p.z)));
+            
+          float tdy = dy*cos(0.3*atan(pzt, a)); 
+            
+          // float ap = atan(p.y,atan(dx,tan(atan(a, atan(pzt, a)) )));
+          //   a=ap-(p.z);
+        
+          float f = cos(a*3.)*sin(a*3.);
+          // f = abs(cos(a*3.));
+          f = abs(cos(a*5.5))*.5+.3-r/2.;
+          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1-r;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5; 		 
+         float s = 1.-smoothstep(f,f+0.02,r);
+          return vec3(r, a, s);
         }
         
         float hillTerrain(float t) {
@@ -434,27 +525,56 @@ export class SavannahShaderMaterials {
         vec3 getPath (vec3 startPos, vec3 endPos, float t){
           return mix(startPos, endPos, hillTerrain(t)); // rises, then falls
         }
-        
-        float linearTerrainSDF(vec3 p) {
-          // simulate terrain along X
-          float h = fractalHill(p.x+time);
-          return p.y - h; // above = positive, below = negative
-        }
-        
-        // 3D terrain SDF
-        float terrainSDF(vec3 p) {
-          float h = terrainHeight(p.xz);
-          return p.y - h;
-        }
-        
+     
         float terrainVolumeSDF(vec3 p) {
           float h = terrainHeight(p.xz); // 2D hill over XZ
           return p.y - h;
         }
 
+        float treeSDF(vec3 p) {
+          p.z -= time;
+          p =fract(p);
+          // Distribute trees periodically over terrain
+          vec2 cell = floor(p.xz * 2.0); // spacing
+          vec3 pos = p - vec3(cell.x + 0.5, 0.0 , cell.y + 0.5);
+          pos.y -= terrainHeight(cell + 0.5); // offset by terrain
+
+          float trunk = sdCylinder(pos,  0.5, .05); // trunk
+          return trunk;
+        }
+
+        float foliageSDF(vec3 p, vec3 base, float rnd) {
+          float foliageHeight = 0.2 + 0.1 * fract(rnd * 60.0);
+          vec3 canopyCenter = base + vec3(0.0, foliageHeight, 0.0);
+          // vec3 q = fract(p)-0.5;
+          return length(p - canopyCenter) - 0.15; // sphere canopy
+        }
+
+        float linearTerrainSDF(vec3 p) {
+          // simulate terrain along X
+          float h = fractalHill(p.y+(time*0.21)+ terrainVolumeSDF((p)));// Atlantic Deltas
+            
+          float r = ripples(h);
+          h = fractalHill(p.y+(time*0.21)+ terrainVolumeSDF((p)));// Atlantic Deltas
+          // float h = fractalHill(p.y+(time*0.1)+ treeSDF(fract(1.-p)));
+          // h=r;
+          return p.y - h; // above = positive, below = negative
+        }
+
+        float forestSDF(vec3 p) {
+          float terrain = terrainVolumeSDF(p);
+          float tree = treeSDF(p);
+          float h = fractalHill(p.y+(time*0.21)+ terrainVolumeSDF((p)));// Atlantic Deltas
+          float foliage = min(foliageSDF(p, (vec3(tree)), terrain), tree+h);
+          // foliage = min(foliageSDF(p, -log(p), terrain), tree);
+          return min((terrain, tree+h), foliage);
+          // return min(min(terrain, tree), foliage);
+          // return min((terrain, tree), foliage);
+        }
+
         // Estimate normal from SDF
         vec3 computeNormal(vec3 p) {
-          float d = terrainVolumeSDF(p);
+          float d = terrainVolumeSDF(p)+forestSDF(p);
           vec2 e = vec2(0.001, 0.0);
           return normalize(vec3(
             terrainVolumeSDF(p + e.xyy) - d,
@@ -462,7 +582,7 @@ export class SavannahShaderMaterials {
             terrainVolumeSDF(p + e.yyx) - d
           ));
         }
-
+        
         vec3 terrainColor(vec3 p, float d) {
           // Shading
           vec3 color = vec3(0.6, 0.85, 0.4); // default grass color
@@ -492,39 +612,43 @@ export class SavannahShaderMaterials {
           float depthFactor = 0.064;
           float t = 0.0; // Total Distance Travelled By Ray
           vec3 depthGreyValue = vec3(t);
-          vec3 p; // declared outside loop so it's accessible after
+          vec3 p; // declared outside loop so it's accessible after 
+          float ripple;
           float d = 0.0;
           vec3 path = getPath(ro, rd, t) ;
-        
+          
           for (int i = 0; i < 80; i++) {
-            p.xz *= rot2D(ro.z+S(time*ro.y));
             p = ro + rd * t;
             float d = terrainVolumeSDF(p)* linearTerrainSDF(p+path);// LandScape;
-            d = (terrainVolumeSDF(p)+ linearTerrainSDF(p+path));// Coniferous Forests
+            d = terrainVolumeSDF(p)+ linearTerrainSDF(p+path);// Coniferous Forests
             // d = terrainVolumeSDF(p)* linearTerrainSDF(p+path)+hillTerrain(p.y); // Riparian Forest 
-            // d = terrainVolumeSDF(p)* linearTerrainSDF(p+path)+hillTerrain(p.z); //Snow Grassland
-            // d = (terrainVolumeSDF(p)+ linearTerrainSDF(p+path)+hillTerrain(p.z)); // Plain Field
+            // d = getPath(ro, rd, p.x).y;
+            d += linearTerrainSDF(p +path)+treeSDF(p); 
+            d = forestSDF(p);
+            // d = treeSDF(p);
+            // d/=forestSDF(p+path)+forestSDF(p)+linearTerrainSDF(p+path);// MillworkOceanBed
+            d /= terrainVolumeSDF(p)+ linearTerrainSDF(p+path); //Snow Grassland
+            // d /= (terrainVolumeSDF(p)+ linearTerrainSDF(p+path)+hillTerrain(p.z)); // Plain Field
             if (d < 0.001 || t > 100.0) break;
         
             t += d;
             depthGreyValue = vec3(i) / 80.0;
           }
         
-          float ray = t * 0.2 * depthFactor;
-           float rpl = ripples(ray*S(sin(time*0.22)));
-        
+          float ray = t * 0.912 * depthFactor;
+          ripple = ripples(ray*sin(time+0.7));
+          
           // 🌿 Base shading — default grass tint
-          vec3 color = depthGreyValue * vec3(0.6, 0.85, 0.4);
+          vec3 color = depthGreyValue * vec3(0.6, .85, 0.4);
           vec3 landScape = terrainColor(p, t);
-          color = depthGreyValue * landScape;
-          vec3 cloudyLandScape = terrainColor(p, t*rpl);
-          vec3 foggyLandScape = terrainColor(p, t/rpl);
-          color = depthGreyValue * landScape;
-          // color = depthGreyValue + cloudyLandScape;// Wind AND 
+          // color = depthGreyValue * landScape;
+          // vec3 cloudyLandScape = terrainColor(p, t*ripple);
+          // vec3 foggyLandScape = terrainColor(p, t/ripple);
+          // color = depthGreyValue * landScape;
+          // color = depthGreyValue / cloudyLandScape;// Wind AND 
           // color = depthGreyValue * foggyLandScape; // FloodedDelta
           // vec3 rayColor= rayPower(p, d, t);
-          color.xz *= rot2D(color.z+S(time*color.x));
-      
+        
           return vec4(color, ray);
         }
         
@@ -539,41 +663,26 @@ export class SavannahShaderMaterials {
           vec3 color = mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 0.9, 1.0), sin(time * 0.25) * 0.5 + 0.5);
           return color * mask;
         }
-        
-        vec3 dimensions(vec2 u) {
-          vec2 p = vec2(0.5)-u;
-        
-          float r = length(p)*2.0;  // This can serve as the Sun since sdf circle need only r
-          float a = atan(p.y,p.x);
-        
-          float f = cos(a*3.);
-          // f = abs(cos(a*3.));
-          // f = abs(cos(a*2.5))*.5+.3;
-          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
-          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
-          return vec3(r, a, f);
-        }
-      
         void main(){
           vec2 uv = gl_FragCoord.xy/resolution.xy;
-          vec3 color = vec3(0.0);
+
+          // Normalize Mouse normalized to same space (assuming it's passed in already as [0, res])
+          vec2 mouse = (mousePosition * 2.0 - 1.0); // Convert to [-1, 1] range
+
           vec3 specs = dimensions(uv);
           float r = specs.x;
           float a = specs.y;
-          float f = specs.z;
+          float v = specs.z;
           float sun = sdSun(uv);
-      
-      
             
           // Camera setup
-          float flip = 0.0+S(time);
           vec3 ro = vec3(0.0, 1.0, -3.5); // camera origin
           vec3 lookAt = vec3(0.0, 0.0, 0.0);
           vec3 forward = normalize(lookAt - ro);
-          vec3 right = normalize(cross(vec3(1./flip, 1.0, 0.0), forward));
+          vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
           vec3 up = cross(forward, right);
-          // right.xz *= -rot2D(color.z+S(time));
           vec3 rd = normalize(uv.x * right + uv.y * up + 1.5 * forward);
+            vec3 color;
         
           // March
           vec4 renderer = raymarch(ro, rd);
@@ -582,23 +691,50 @@ export class SavannahShaderMaterials {
           // vec3 p = ro + rd * dist;
         
         
-          // color = vec3( 1.-smoothstep(f,f+0.02,r) );
+          // vec3 color = vec3( 1.-smoothstep(f,f+0.02,r) );
           // color *= d;
-          color = r-renderer.rgb/sun;
-          // color = sunLight(uv);
-        
-          // Optional: apply polar distortion
-          // color *= 0.5 + 0.5 * polarEffect;
-          gl_FragColor = vec4(color, 1.0);
+          
+          vec3 shape = r-vec3((renderer.w-r), renderer.y, renderer.z)-renderer.z/(sun);
+          color = shape;
+          // color = sunLight(uv); 
+
+          float absT =  abs(sin(sineTime));
+          // Check if hovered is active or not
+          if (hovered > 0.0) {
+            // Mouse is hovering, apply mouse interaction effects
+            float dist = distance(mousePosition, uv);
+            float absT =  abs(sin(sineTime));
+            // dist +=  absT;
+            
+            // Use the distance to influence the color (make mouse position cause a color shift)
+            color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Makes the area closer to the mouse lighter (for visible effect)
+
+            // Use distance to control the opacity
+            float opacity = smoothstep(0.0, 0.5, dist); // Opacity decreases with distance from the mouse position
+            
+            // Optionally, add sineTime-based animation for extra dynamics
+            color *= 0.5 + (0.95) * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and time
+                
+            gl_FragColor = vec4(color, opacity);
+          } else {
+            // Mouse is not hovering, apply default effect based on UV coordinates and distance
+            float dist = distance(uv, vec2(0.5, 0.5)); // Default base distance, could be replaced with your original calculation
+            color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Use original UV-distance-bacoloring
+            color = shape; // Sliding movement 
+            color *= (0.1371+v/a)+ (0.975) * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and sineTime
+            float opacity = smoothstep(0.6, 0.8, 1.0);
+            gl_FragColor = vec4(color, opacity); // Default behavior
+          }  
+          // gl_FragColor = vec4(color, 1.0);
         }
       `
     }
 
-    this.purpleVanillaMaterial = new THREE.ShaderMaterial(this.purpleVanillaShader);
-  }
+    this.marineSnakesMaterial = new THREE.ShaderMaterial(this.marineSnakesShader);
+  } 
 
-  useWhiteSavanahShader() {
-    this.whiteSavannahShader = {
+  useMarineMillWorkShader() {
+    this.marineMillworkShader = {
       uniforms: {
         hovered: { value: this.hovered },
         sineTime: { value: this.sineTime },
@@ -607,9 +743,13 @@ export class SavannahShaderMaterials {
         mousePosition: { value: this.mousePosition },
         explodeIntensity: { value: this.explodeIntensity },
         resolution: { value: new THREE.Vector2(this.width, this.height) },
+        u_velocity: { value: this.params.customShaderUniforms.u_velocity }, 
+        u_rippleTime: { value: this.params.customShaderUniforms.u_rippleTime }, 
+        u_rippleOrigin: { value: this.params.customShaderUniforms.u_rippleOrigin }, 
+        u_terrainElevation: { value: this.params.customShaderUniforms.u_terrainElevation }, 
 
         // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
-        customUniforms: { value: this.params.customShaderUniforms }, 
+        climateCondition: { value: this.params.customShaderUniforms.climateCondition }, 
       },
 
       vertexShader: `
@@ -664,11 +804,11 @@ export class SavannahShaderMaterials {
         uniform vec2 resolution;
         uniform float explodeIntensity;
         uniform float sineTime;
-        
+
         #define MAX_STEPS 100
         #define MAX_DIST 100.0
         #define SURF_DIST 0.001
-        
+   
         // === Fractal Hill Pattern ===
         float fractalHill(float t) {
           float total = 0.0;
@@ -690,71 +830,102 @@ export class SavannahShaderMaterials {
           return fractalHill(posXZ.x * 0.5 + sin(posXZ.y) * 0.25);
         }
         
-        mat2 rot2D(float angle) {
-          float s = sin(angle);
-          float c = cos(angle);
-          return mat2(c, -s, s, c);
-        }
-        
-        
-        vec3 interpolate(vec3 a, vec3 b, float t) {
-          return mix(a, b, t); // built-in linear interpolation
-          // or equivalently:
-          // return a + (b - a) * t;
-        }
-        
-        float S(float t) {
-          return t * t * (3.0 - 2.0 * t); // smootherstep or easeInOut
-        }
-        
-        vec3 smoothLerp(vec3 a, vec3 b, float t) {
-          return mix(a, b, S(t));
-        }
-        
-        float powerDrop(float t) {
-          return pow(t, 3.0); // fast drop (ease-in cubic)
-        }
-        
-        vec3 waterfall(vec3 a, vec3 b, float t) {
-          return mix(a, b, powerDrop(t));
-        }
-        
+        // Usage
         float getHeight(float t) {
           return fractalHill(t); // fractal height
+        }
+
+        float sdCylinder(vec3 p, float h, float r) {
+          vec2 d = abs(vec2(length(p.xz), p.y)) - vec2(r, h * 0.5);
+          return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
         }
         
         float ripples(float t) {
           return 0.5 + 0.5 * sin(t * 2.0 * 3.14159); // repeats every 1.0
         }
         
+        vec3 dimensions(vec2 u) {
+          vec2 pos = vec2(0.5)-u;
+          vec3 p = vec3(pos, -9.0+time);
+          float dx = distance(p.x, 0.0);
+          float dy = distance(p.y, 0.0);
+          float dz = distance(p.z, 0.0);
+      
+          float r = length(pos)*2.0; 
+          float pzt = p.z*(time*0.00051);
+          float a = atan(pos.y,tan(p.z+fract(pos.x+p.z)));
+            
+          float tdy = dy*cos(0.3*atan(pzt, a)); 
+            
+          // float ap = atan(p.y,atan(dx,tan(atan(a, atan(pzt, a)) )));
+          //   a=ap-(p.z);
+        
+          float f = cos(a*3.)*sin(a*3.);
+          // f = abs(cos(a*3.));
+          f = abs(cos(a*5.5))*.5+.3-r/2.;
+          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1-r;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5; 		 
+          float sh = 1.-smoothstep(f,f+0.02,r);
+          return vec3(r, a, sh);
+        }
+        
         float hillTerrain(float t) {
           return abs(sin(t * 2.0 * 3.14159)); // double bump per cycle
         }
         
-        vec3 path (vec3 startPos, vec3 endPos, float t){
+        vec3 getPath (vec3 startPos, vec3 endPos, float t){
           return mix(startPos, endPos, hillTerrain(t)); // rises, then falls
         }
-        
-        float linearTerrainSDF(vec3 p) {
-          // simulate terrain along X
-          float h = fractalHill(p.x+time);
-          return p.y - h; // above = positive, below = negative
-        }
-        
-        // 3D terrain SDF
-        float terrainSDF(vec3 p) {
-          float h = terrainHeight(p.xz);
-          return p.y - h;
-        }
-        
+     
         float terrainVolumeSDF(vec3 p) {
           float h = terrainHeight(p.xz); // 2D hill over XZ
           return p.y - h;
         }
-        
+
+        float treeSDF(vec3 p) {
+          p.z -= time;
+          p =fract(p);
+          // Distribute trees periodically over terrain
+          vec2 cell = floor(p.xz * 2.0); // spacing
+          vec3 pos = p - vec3(cell.x + 0.5, 0.0 , cell.y + 0.5);
+          pos.y -= terrainHeight(cell + 0.5); // offset by terrain
+
+          float trunk = sdCylinder(pos,  0.5, .05); // trunk
+          return trunk;
+        }
+
+        float foliageSDF(vec3 p, vec3 base, float rnd) {
+          float foliageHeight = 0.2 + 0.1 * fract(rnd * 60.0);
+          vec3 canopyCenter = base + vec3(0.0, foliageHeight, 0.0);
+          // vec3 q = fract(p)-0.5;
+          return length(p - canopyCenter) - 0.15; // sphere canopy
+        }
+
+        float linearTerrainSDF(vec3 p) {
+          // simulate terrain along X
+          float h = fractalHill(p.y+(time*0.21)+ terrainVolumeSDF((p)));// Atlantic Deltas
+            
+          float r = ripples(h);
+          h = fractalHill(p.y+(time*0.21)+ terrainVolumeSDF((p)));// Atlantic Deltas
+          // float h = fractalHill(p.y+(time*0.1)+ treeSDF(fract(1.-p)));
+          // h=r;
+          return p.y - h; // above = positive, below = negative
+        }
+
+        float forestSDF(vec3 p) {
+          float terrain = terrainVolumeSDF(p);
+          float tree = treeSDF(p);
+          float h = fractalHill(p.y+(time*0.21)+ terrainVolumeSDF((p)));// Atlantic Deltas
+          float foliage = min(foliageSDF(p, (vec3(tree)), terrain), tree+h);
+          // foliage = min(foliageSDF(p, -log(p), terrain), tree);
+          return min((terrain, tree+h), foliage);
+          // return min(min(terrain, tree), foliage);
+          // return min((terrain, tree), foliage);
+        }
+
         // Estimate normal from SDF
         vec3 computeNormal(vec3 p) {
-          float d = terrainVolumeSDF(p);
+          float d = terrainVolumeSDF(p)+forestSDF(p);
           vec2 e = vec2(0.001, 0.0);
           return normalize(vec3(
             terrainVolumeSDF(p + e.xyy) - d,
@@ -775,9 +946,7 @@ export class SavannahShaderMaterials {
           }
             return color;
         }
-        
-        
-        
+
         // Raymarching algorithm
         float renderer(vec3 ro, vec3 rd) {
           float t = 0.0;
@@ -794,76 +963,47 @@ export class SavannahShaderMaterials {
           float depthFactor = 0.064;
           float t = 0.0; // Total Distance Travelled By Ray
           vec3 depthGreyValue = vec3(t);
-          vec3 p; // declared outside loop so it's accessible after
+          vec3 p; // declared outside loop so it's accessible after 
+          float ripple;
           float d = 0.0;
-          vec3 pth = path(ro, rd, t) ;
-        
+          vec3 path = getPath(ro, rd, t) ;
+          
           for (int i = 0; i < 80; i++) {
-            p.xz *= rot2D(ro.z+S(time*ro.y));
             p = ro + rd * t;
-            float d = terrainVolumeSDF(p)* linearTerrainSDF(p+pth);// LandScape;
-            d = (terrainVolumeSDF(p)+ linearTerrainSDF(p+pth));// Coniferous Forests
-            d = terrainVolumeSDF(p)* linearTerrainSDF(p+pth)+hillTerrain(p.y); // Riparian Forest 
-            d = terrainVolumeSDF(p)* linearTerrainSDF(p+pth)+hillTerrain(p.z); //Snow Grassland
-            // d = (terrainVolumeSDF(p)+ linearTerrainSDF(p+pth)+hillTerrain(p.z)); // Plain Field
+            float d = terrainVolumeSDF(p)* linearTerrainSDF(p+path);// LandScape;
+            d = terrainVolumeSDF(p)+ linearTerrainSDF(p+path);// Coniferous Forests
+            // d = terrainVolumeSDF(p)* linearTerrainSDF(p+path)+hillTerrain(p.y); // Riparian Forest 
+            // d = getPath(ro, rd, p.x).y;
+            d = linearTerrainSDF(p +path)+treeSDF(p); 
+            d = forestSDF(p);
+            d = treeSDF(p);
+            // d+=forestSDF(p+path)+forestSDF(p)+linearTerrainSDF(p+path);
+            // d = terrainVolumeSDF(p)+ linearTerrainSDF(p+path); //Snow Grassland
+            // d = (terrainVolumeSDF(p)+ linearTerrainSDF(p+path)+hillTerrain(p.z)); // Plain Field
+  
             if (d < 0.001 || t > 100.0) break;
         
             t += d;
+
             depthGreyValue = vec3(i) / 80.0;
           }
         
-          float ray = t * 0.2 * depthFactor;
-          float rpl = ripples(ray*S(sin(time*0.22)));
-        
+          float ray = t * 0.912 * depthFactor;
+          ripple = ripples(ray*sin(time+0.7));
+          
           // 🌿 Base shading — default grass tint
-          vec3 color = depthGreyValue * vec3(0.6, 0.85, 0.4);
+          vec3 color = depthGreyValue * vec3(0.6, .85, 0.4);
           vec3 landScape = terrainColor(p, t);
-          color = depthGreyValue * landScape;
-          vec3 cloudyLandScape = terrainColor(p, t*rpl);
-          vec3 foggyLandScape = terrainColor(p, t/rpl);
-          color = depthGreyValue * landScape;
-          color =min( depthGreyValue,  cloudyLandScape);// Beautiful Purple White Clouds
+          // color = depthGreyValue * landScape;
+          // vec3 cloudyLandScape = terrainColor(p, t*ripple);
+          // vec3 foggyLandScape = terrainColor(p, t/ripple);
+          // color = depthGreyValue * landScape;
+          // color = depthGreyValue / cloudyLandScape;// Wind AND 
           // color = depthGreyValue * foggyLandScape; // FloodedDelta
           // vec3 rayColor= rayPower(p, d, t);
-          color.xz *= rot2D(color.z+S(time*color.x));
         
           return vec4(color, ray);
         }
-        
-        // vec3 rayPower( vec3 p, float d, float t) {
-        //   float depthFactor = 0.064;
-        //   float ray = t * 0.2 * depthFactor;
-        
-        //   // 🌿 Base shading — default grass tint
-        //   vec3 depthColor = vec3(0.6, 0.85, 0.4);
-        
-        //   if (d < MAX_DIST) {
-        //     vec3 normal = computeNormal(p);
-        //     float diff = clamp(dot(normal, normalize(vec3(0.3, 1.0, 0.5))), 0.0, 1.0);
-        //     vec3 terrainColor = vec3(0.3, 0.6, 0.2);
-        //     depthColor *= terrainColor * diff;
-        
-        //     // ✅ (Optional) Drop shadows back in when ready:
-        //     // float shadow = computeSoftShadow(p + normal * 0.05, lightPos);
-        //     // depthColor *= shadow;
-        //   } else {
-        //     depthColor *= vec3(0.6, 0.8, 1.0); // sky tint
-        //   }
-        //   return depthColor*ray;
-        // }
-        
-        // float sdSun(vec2 u, float r) {
-        //   vec2 p = u - vec2(0.5); // Center the sun
-        //   return length(p) - r;
-        // }
-        
-        // vec3 sunLight(vec2 u) {
-        //  // 🌞 SUN rendering (using sun SDF)
-        //   float sunDist = sdSun(u, 0.1); // radius = 0.1
-        //   float mask = 1.0 - smoothstep(0.0, 0.02, sunDist);
-        //   vec3 light = vec3(1.0, 0.5, 0.0) * sunMask;; // You can animate this too
-        //   return light;
-        // }
         
         float sdSun(vec2 u) {
           vec2 p = vec2(0.5)-u;
@@ -876,39 +1016,26 @@ export class SavannahShaderMaterials {
           vec3 color = mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 0.9, 1.0), sin(time * 0.25) * 0.5 + 0.5);
           return color * mask;
         }
-        
-        vec3 dimensions(vec2 u) {
-          vec2 p = vec2(0.5)-u;
-      
-          float r = length(p)*2.0;  // This can serve as the Sun since sdf circle need only r
-          float a = atan(p.y,p.x);
-        
-          float f = cos(a*3.);
-          // f = abs(cos(a*3.));
-          // f = abs(cos(a*2.5))*.5+.3;
-          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
-          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
-          return vec3(r, a, f);
-        }
-        
         void main(){
           vec2 uv = gl_FragCoord.xy/resolution.xy;
-          vec3 color = vec3(0.0);
+
+          // Normalize Mouse normalized to same space (assuming it's passed in already as [0, res])
+          vec2 mouse = (mousePosition * 2.0 - 1.0); // Convert to [-1, 1] range
+
           vec3 specs = dimensions(uv);
           float r = specs.x;
           float a = specs.y;
-          float f = specs.z;
+          float v = specs.z;
           float sun = sdSun(uv);
             
           // Camera setup
           vec3 ro = vec3(0.0, 1.0, -3.5); // camera origin
           vec3 lookAt = vec3(0.0, 0.0, 0.0);
           vec3 forward = normalize(lookAt - ro);
-          float flip = 0.0+S(time);
-          vec3 right = normalize(cross(vec3(1./flip, 1.0, 0.0), forward));
+          vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
           vec3 up = cross(forward, right);
-          // right.xz *= -rot2D(color.z+S(time));
           vec3 rd = normalize(uv.x * right + uv.y * up + 1.5 * forward);
+          vec3 color;
         
           // March
           vec4 renderer = raymarch(ro, rd);
@@ -917,26 +1044,53 @@ export class SavannahShaderMaterials {
           // vec3 p = ro + rd * dist;
         
         
-          // color = vec3( 1.-smoothstep(f,f+0.02,r) );
+          // vec3 color = vec3( 1.-smoothstep(f,f+0.02,r) );
           // color *= d;
-          color = r-renderer.rgb/sun;
-          // color = sunLight(uv);
-        
-          // Optional: apply polar distortion
-          // color *= 0.5 + 0.5 * polarEffect;
-          gl_FragColor = vec4(color, 1.0);
+          
+          vec3 shape = r-vec3((renderer.w-r), renderer.y, renderer.z)-renderer.z/(sun);
+          color = shape;
+          // color = sunLight(uv); 
+
+          float absT =  abs(sin(sineTime));
+          // Check if hovered is active or not
+          if (hovered > 0.0) {
+            // Mouse is hovering, apply mouse interaction effects
+            float dist = distance(mousePosition, uv);
+            float absT =  abs(sin(sineTime));
+            // dist +=  absT;
+            
+            // Use the distance to influence the color (make mouse position cause a color shift)
+            color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Makes the area closer to the mouse lighter (for visible effect)
+
+            // Use distance to control the opacity
+            float opacity = smoothstep(0.0, 0.5, dist); // Opacity decreases with distance from the mouse position
+            
+            // Optionally, add sineTime-based animation for extra dynamics
+            color *= 0.5 + (0.95) * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and time
+                
+            gl_FragColor = vec4(color, opacity);
+          } else {
+            // Mouse is not hovering, apply default effect based on UV coordinates and distance
+            float dist = distance(uv, vec2(0.5, 0.5)); // Default base distance, could be replaced with your original calculation
+            color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Use original UV-distance-bacoloring
+            color = shape; // Sliding movement 
+            color *= (0.1371+v/a)+ (0.975) * sin(time + dist * 10.0); // Add a dynamic oscillating effect based on distance and sineTime
+            float opacity = smoothstep(0.6, 0.8, 1.0);
+            gl_FragColor = vec4(color, opacity); // Default behavior
+          }  
+          // gl_FragColor = vec4(color, 1.0);
         }
       `
     }
 
-    this.whiteSavannahMaterial = new THREE.ShaderMaterial(this.whiteSavannahShader);
-  }
+    this.marineMillworkMaterial = new THREE.ShaderMaterial(this.marineMillworkShader);
+  } 
 
   getShaders() {
     this.shaders = [
-      this.savannahGrassShader,
-      this.purpleVanillaShader,
-      this.whiteSavannahShader,
+      this.marineSnakesShader,
+      this.marineBedShader,
+      this.marineMillworkShader
     ];
   }
 
@@ -996,4 +1150,4 @@ export class SavannahShaderMaterials {
     });
   }
 }
-export default SavannahShaderMaterials;
+export default MarienBedShaderMaterials;

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export class LucentShadereMaterials {
+export class LucentShaderMaterials {
   constructor(params,
     mouse) {
     this.params = params;
@@ -17,11 +17,12 @@ export class LucentShadereMaterials {
     this.hovered = this.params.hovered ?? 0.1;
 
     // Mouse Utils
-    this.mouse = mouse;
-    this.mousePosition = this.mouse;
+    this.mousePosition = mouse;
 
     this.useBlendedLucentShader();
     this.useBlendedMosaicShader();
+    this.useBlendedCaveShader();
+
     this.updateEvents();
     this.getShaders();
   }
@@ -417,11 +418,27 @@ export class LucentShadereMaterials {
 
           // Normalize Mouse normalized to same space (assuming it's passed in already as [0, res])
           vec2 mouse = (mousePosition * 2.0 - 1.0); // Convert to [-1, 1] range
-          vec2 mouseUV = mousePosition / resolution;
+
+          vec3 specs = dimensions(uv);
+          float r = specs.x;
+          float a = specs.y;
+          float f = specs.z;
+          float sun = sdSun(uv);
+            
+          // Camera setup
+          vec3 ro = vec3(0.0, 1.0, -3.5); // camera origin
+          vec3 lookAt = vec3(0.0, 0.0, 0.0);
+          vec3 forward = normalize(lookAt - ro);
+          vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+          vec3 up = cross(forward, right);
+          vec3 rd = normalize(uv.x * right + uv.y * up + 1.5 * forward);
         
-          // Aspect ratio correction for final rendering only, not for distance
-          vec2 aspectUV = uv;
-          aspectUV.x *= resolution.x / resolution.y;
+          // RayMarch
+          vec4 renderer = raymarch(ro, rd);
+          float d = renderer.w;
+        
+        
+          vec3 color = vec3( 1.-smoothstep(f,f+0.02,r) );
 
           // Check if hovered is active or not
           if (hovered > 0.0) {
@@ -454,6 +471,327 @@ export class LucentShadereMaterials {
     };
 
     this.blendedLucentMaterial = new THREE.ShaderMaterial(this.blendedLucentShader);
+  }
+
+  useBlendedCaveShader() {
+    this.blendedCaveShader = {
+      uniforms: {
+        hovered: { value: this.hovered },
+        sineTime: { value: this.sineTime },
+        shapeFactor: { value: this.shapeFactor },
+        time: { value: this.clock.getElapsedTime() },
+        mousePosition: { value: this.mousePosition },
+        explodeIntensity: { value: this.explodeIntensity },
+        resolution: { value: new THREE.Vector2(this.width, this.height) },
+
+        // 🌧️ Add new uniform for weather effect toggle // 0: clear, 1: rain, 2: flood, 3: storm etc.
+        customUniforms: { value: this.params.customShaderUniforms }, 
+      },
+
+      vertexShader: `
+      #ifdef GL_ES
+      precision mediump float;
+      #endif
+      
+        uniform float sineTime;
+        uniform float hovered;
+        uniform vec2 mousePosition;
+        uniform float explodeIntensity;
+        varying vec2 vUv;
+  
+        float noise(vec2 p) {
+          return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+        }
+  
+        void main() {
+          vUv = uv;
+          vec3 pos = position;
+      
+          // Calculate distance to mouse position
+          // float dist = distance(mousePosition, vec2(pos.x, pos.y));
+          // float effect = hovered * smoothstep(0.2, 0.0, dist) * noise(pos.xy * 10.0 + sineTime);
+          // // Apply explode effect
+          // pos += normal * effect * explodeIntensity;
+    
+          // Calculate distance from the mouse to the vertex position
+          float dist = distance(mousePosition, uv); // Use UV for spatial mapping
+          
+          // Apply mouse interaction as distortion (push/pull effect)
+          float effect = hovered * smoothstep(0.2, 0.0, dist) * 0.5 * sin(sineTime + dist * 10.0);
+          
+          // Apply explode effect based on intensity and mouse interaction
+          pos += normal * effect * explodeIntensity;
+      
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        }
+      `,
+
+      fragmentShader: `
+        #ifdef GL_ES
+        precision mediump float;
+        #endif
+        
+        varying vec2 vUv;
+        uniform float time;
+        uniform float sineTime;
+        uniform float hovered;
+        uniform float shapeFactor;
+        uniform vec2 mousePosition;
+        uniform vec2 resolution;
+        uniform float explodeIntensity;
+
+        #define MAX_STEPS 100
+        #define MAX_DIST 100.0
+        #define SURF_DIST 0.001
+        
+        // === Fractal Hill Pattern ===
+        float fractalHill(float t) {
+        float total = 0.0;
+        float amplitude = 1.0;
+        float frequency = 1.0;
+        float persistence = 0.5;
+      
+        for (int i = 0; i < 4; i++) {
+          total += sin(t * frequency * 3.14159) * amplitude;
+          amplitude *= persistence;
+          frequency *= 2.0;
+        }
+
+        return total * 0.5 + 0.5; // normalize to [0,1]
+        }
+  
+        // Terrain height using XZ
+        float terrainHeight(vec2 posXZ) {
+          return fractalHill(posXZ.x * 0.5 + sin(posXZ.y) * 0.25);
+        }
+          
+        // Usage
+        float getHeight(float t) {
+          return fractalHill(t); // fractal height
+        }
+
+        float sdCylinder(vec3 p, float h, float r) {
+          vec2 d = abs(vec2(length(p.xz), p.y)) - vec2(r, h * 0.5);
+          return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+        }
+  
+        float ripples(float t) {
+          return 0.5 + 0.5 * sin(t * 2.0 * 3.14159); // repeats every 1.0
+        }
+  
+        float hillTerrain(float t) {
+          return abs(sin(t * 2.0 * 3.14159)); // double bump per cycle
+        }
+          
+        vec3 getPath (vec3 startPos, vec3 endPos, float t){
+            return mix(startPos, endPos, hillTerrain(t)); // rises, then falls
+        }
+  
+        float linearTerrainSDF(vec3 p) {
+          // simulate terrain along X
+          float h = fractalHill(p.x+time);
+          return p.y - h; // above = positive, below = negative
+        }
+  
+         
+        float terrainVolumeSDF(vec3 p) {
+           float h = terrainHeight(p.xz); // 2D hill over XZ
+             return p.y - h;
+         }
+
+         float treeSDF(vec3 p) {
+          p.z -= time;
+          p =fract(p);
+          // Distribute trees periodically over terrain
+          vec2 cell = floor(p.xz * 2.0); // spacing
+          vec3 pos = p - vec3(cell.x + 0.5, 0.0 , cell.y + 0.5);
+          pos.y -= terrainHeight(cell + 0.5); // offset by terrain
+        
+          float trunk = sdCylinder(pos,  0.5, .05); // trunk
+          return trunk;
+        }
+  
+        float foliageSDF(vec3 p, vec3 base, float rnd) {
+          float foliageHeight = 0.2 + 0.1 * fract(rnd * 60.0);
+          vec3 canopyCenter = base + vec3(0.0, foliageHeight, 0.0);
+          // vec3 q = fract(p)-0.5;
+          return length(p - canopyCenter) - 0.15; // sphere canopy
+        }
+  float forestSDF(vec3 p) {
+          float terrain = terrainVolumeSDF(p);
+          float tree = treeSDF(p);
+          float foliage = min(foliageSDF(p, (vec3(tree)), terrain), tree);
+          // foliage = min(foliageSDF(p, -log(p), terrain), tree);
+          // return min(min(terrain, tree), foliage);
+          // return min(min(terrain, tree), foliage);
+          return min((terrain, tree), foliage);
+        }
+
+        // Estimate normal from SDF
+        vec3 computeNormal(vec3 p) {
+          float d = terrainVolumeSDF(p)+forestSDF(p);
+          vec2 e = vec2(0.001, 0.0);
+          return normalize(vec3(
+            terrainVolumeSDF(p + e.xyy) - d,
+            terrainVolumeSDF(p + e.yxy) - d,
+            terrainVolumeSDF(p + e.yyx) - d
+          ));
+        }
+  
+        vec3 terrainColor(vec3 p, float d) {
+          // Shading
+          vec3 color = vec3(0.6, 0.85, 0.4); // default grass color
+          if (d < MAX_DIST) {
+            vec3 normal = computeNormal(p);
+            float diff = clamp(dot(normal, vec3(0.3, 1.0, 0.5)), 0.0, 1.0);
+              color = vec3(0.3, 0.6, 0.2) * diff;
+            } else {
+              color = vec3(0.6, 0.8, 1.0); // sky
+            }
+              return color;
+          }
+
+          // Raymarching algorithm
+          float renderer(vec3 ro, vec3 rd) {
+          float t = 0.0;
+          for (int i = 0; i < MAX_STEPS; i++) {
+            vec3 p = ro + rd * t;
+            float d = terrainVolumeSDF(p) + linearTerrainSDF(p);
+            if (d < SURF_DIST || t > MAX_DIST) break;
+            t += d;
+          }
+          return t;
+        }
+ 
+        vec4 raymarch(vec3 ro, vec3 rd) {
+          float depthFactor = 0.064;
+          float t = 0.0; // Total Distance Travelled By Ray
+          vec3 depthGreyValue = vec3(t);
+          vec3 p; // declared outside loop so it's accessible after
+          float d = 0.0;
+          vec3 pth = getPath(ro, rd, t) ;
+          
+          for (int i = 0; i < 80; i++) {
+            p = ro + rd * t;
+            float d = terrainVolumeSDF(p)* linearTerrainSDF(p+pth);// LandScape;
+            d = terrainVolumeSDF(p)+ linearTerrainSDF(p+pth);// Coniferous Forests
+            // d = terrainVolumeSDF(p)* linearTerrainSDF(p+pth)+hillTerrain(p.y); // Riparian Forest 
+            d = forestSDF(p);
+            // d=forestSDF(p+pth)+forestSDF(p)+linearTerrainSDF(p+pth);
+            // d = terrainVolumeSDF(p)* linearTerrainSDF(p+pth)+hillTerrain(p.z); //Snow Grassland
+            // d = (terrainVolumeSDF(p)+ linearTerrainSDF(p+pth)+hillTerrain(p.z)); // Plain Field
+            if (d < 0.001 || t > 100.0) break;
+              
+            t += d;
+            depthGreyValue = vec3(i) / 80.0;
+          }
+     
+          float ray = t * 0.2 * depthFactor;
+          float rpl = ripples(ray*sin(time+0.7));
+          
+          // 🌿 Base shading — default grass tint
+          vec3 color = depthGreyValue * vec3(0.6, .85, 0.4);
+          vec3 landScape = terrainColor(p, t);
+          // color = depthGreyValue * landScape;
+          // vec3 cloudyLandScape = terrainColor(p, t*rpl);
+          // vec3 foggyLandScape = terrainColor(p, t/rpl);
+          // color = depthGreyValue * landScape;
+          // color = depthGreyValue / cloudyLandScape;// Wind AND 
+          // color = depthGreyValue * foggyLandScape; // FloodedDelta
+          // vec3 rayColor= rayPower(p, d, t);
+        
+          return vec4(color, ray);
+        }
+
+        float sdSun(vec2 u) {
+          vec2 p = vec2(0.5)-u;
+          return length(p)*2.0;
+        }
+        
+        vec3 sunLight(vec2 uv) {
+          float d = sdSun(uv);  // you can vary this radius
+          float mask = 1.0 - smoothstep(0.0, 0.02, d);
+          vec3 color = mix(vec3(1.0, 0.5, 0.0), vec3(1.0, 0.9, 1.0), sin(time * 0.25) * 0.5 + 0.5);
+          return color * mask;
+        }
+
+        vec3 dimensions(vec2 u) {
+          vec2 p = vec2(0.5)-u;
+      
+          float r = length(p)*2.0;  // This can serve as the Sun since sdf circle need only r
+          float a = atan(p.y,p.x);
+                
+          float f = cos(a*3.);
+          // f = abs(cos(a*3.));
+          // f = abs(cos(a*2.5))*.5+.3;
+          // f = abs(cos(a*12.)*sin(a*3.))*.8+.1;
+          // f = smoothstep(-.5,1., cos(a*10.))*0.2+0.5;
+          return vec3(r, a, f);
+        }
+    
+        void main() {
+          // UV Mapping
+          vec2 fragCoord = gl_FragCoord.xy;
+          vec2 uv = fragCoord / resolution; // Proper UV mapping
+          uv.x *= resolution.x / resolution.y;
+
+          // Normalize Mouse normalized to same space (assuming it's passed in already as [0, res])
+          vec2 mouse = (mousePosition * 2.0 - 1.0); // Convert to [-1, 1] range
+          vec3 specs = dimensions(uv);
+          float r = specs.x;
+          float a = specs.y;
+          float f = specs.z;
+          float sun = sdSun(uv);
+            
+          // Camera setup
+          vec3 ro = vec3(0.0, 1.0, -3.5); // camera origin
+          vec3 lookAt = vec3(0.0, 0.0, 0.0);
+          vec3 forward = normalize(lookAt - ro);
+          vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+          vec3 up = cross(forward, right);
+          vec3 rd = normalize(uv.x * right + uv.y * up + 1.5 * forward);
+        
+          // RayMarch
+          vec4 renderer = raymarch(ro, rd);
+          float d = renderer.w;
+        
+        
+          vec3 color = vec3( 1.-smoothstep(f,f+0.02,r) );
+          
+          vec3 shape = r-vec3(renderer.w-r/a, renderer.y, renderer.z)-renderer.z+((uv.y)*0.14)/(sun);
+          color = shape;
+
+          // Check if hovered is active or not
+          if (hovered > 0.0) {
+            // Mouse is hovering, apply mouse interaction effects
+            float dist = distance(mouse, uv);
+            float absT =  abs(sin(sineTime));
+            // dist +=  absT;
+            
+            // Use the distance to influence the color (make mouse position cause a color shift)
+            color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Makes the area closer to the mouse lighter (for visible effect)
+            
+            // Use distance to control the opacity
+            float opacity = smoothstep(0.0, 0.5, dist); // Opacity decreases with distance from the mouse position
+            
+            // Optionally, add sineTime-based animation for extra dynamics
+            color *= 0.5 + 0.5 * sin(sineTime + dist * 10.0); // Add a dynamic oscillating effect based on distance and sineTime
+        
+            gl_FragColor = vec4(color, opacity);
+          } else {
+            // Mouse is not hovering, apply default effect based on UV coordinates and distance
+            float dist = distance(uv, vec2(0.5, 0.5)); // Default base distance, could be replaced with your original calculation
+            color += vec3(1.0 - dist, 1.0 - dist, 1.0); // Use original UV-distance-based coloring
+            color = shape;
+            color *= 0.5 + 0.5 * sin(sineTime + dist * 10.0); // Add a dynamic oscillating effect based on distance and sineTime
+            float opacity = smoothstep(0.6, 0.8, 1.0);
+            gl_FragColor = vec4(color, opacity); // Default behavior
+          }
+        }
+      `
+    };
+
+    this.blendedCaveMaterial = new THREE.ShaderMaterial(this.blendedCaveShader);
   }
 
   useBlendedMosaicShader() {
@@ -1065,7 +1403,8 @@ export class LucentShadereMaterials {
   getShaders() {
     this.shaders = [
       this.blendedLucentShader, 
-      this.blendedMosaicShader
+      this.blendedMosaicShader,
+      this.blendedCaveShader,
     ];
   }
 
@@ -1125,4 +1464,4 @@ export class LucentShadereMaterials {
     });
   }
 }
-export default LucentShadereMaterials;
+export default LucentShaderMaterials;

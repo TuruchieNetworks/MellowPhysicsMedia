@@ -10,16 +10,42 @@ import useCarouselImages from '../hooks/UseCarouselImages';
 import AudioPlayer from '../player/AudioPlayer';
 import MusicUtils from '../player/MusicUtils';
 import ImageUtils from '../hooks/ImageUtils';
+import useAudioPlayer from '../hooks/useAudioPlayer';
 
 
 const Merchandise = ({ currentBackground }) => {
+    const {
+        currentTrack,
+        musicList,
+        isMuted,
+        isRandom,
+        isRepeat,
+        isPlaying,
+        seekSlider,
+        trackIndex,
+        currentTime,
+        volumeSlider,
+        totalDuration,
+        remainingDuration,
+        seekTo,
+        setVolume,
+        stopTrack,
+        nextTrack,
+        prevTrack,
+        toggleMute,
+        repeatTrack,
+        randomTrack,
+        setSeekSlider,
+        playpauseTrack,
+        setVolumeSlider
+    } = useAudioPlayer();
     const musicUtils = new MusicUtils();
     const imageUtilities = new ImageUtils();
     const images = imageUtilities.getAllCarouselImages();
     const { videoRef } = UseVideoBackground();
     const videosList = musicUtils.getVideoList();
     const logo_scene = videosList[0].video
-    
+
     const { idx } = useCarouselImages(images);
 
     return (
@@ -28,7 +54,7 @@ const Merchandise = ({ currentBackground }) => {
             style={{
                 width: '100vw',
                 height: '100vh',
-                backgroundSize: 'cover', 
+                backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 backgroundImage: `url(${images[idx]})`,
                 transition: 'background-image 0.5s ease-in-out',
@@ -44,16 +70,41 @@ const Merchandise = ({ currentBackground }) => {
                     </div>
                 </div>
                 <div className='player-container'>
-                    <AudioPlayer />
+                    <AudioPlayer
+                        idx={idx}
+                        images={images}
+                        musicList={musicList}
+                        isMuted={isMuted}
+                        isRandom={isRandom}
+                        isRepeat={isRepeat}
+                        isPlaying={isPlaying}
+                        seekSlider={seekSlider}
+                        trackIndex={trackIndex}
+                        currentTime={currentTime}
+                        volumeSlider={volumeSlider}
+                        totalDuration={totalDuration}
+                        remainingDuration={remainingDuration}
+                        seekTo={seekTo}
+                        setVolume={setVolume}
+                        stopTrack={stopTrack}
+                        nextTrack={nextTrack}
+                        prevTrack={prevTrack}
+                        toggleMute={toggleMute}
+                        repeatTrack={repeatTrack}
+                        randomTrack={randomTrack}
+                        setSeekSlider={setSeekSlider}
+                        playpauseTrack={playpauseTrack}
+                        setVolumeSlider={setVolumeSlider}
+                    />
                 </div>
                 <div className='phoneBio'>
                     <Bio />
                 </div>
                 <div className='phone-state'>
-                <HeaderLinks />
-                <Link to="/about" className="btn party-lights">
-                    Read More
-                </Link>
+                    <HeaderLinks />
+                    <Link to="/about" className="btn party-lights">
+                        Read More
+                    </Link>
                 </div>
             </div>
             <BackgroundCarousel />
